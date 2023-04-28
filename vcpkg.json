@@ -1,0 +1,13 @@
+{
+  "name": "fastmc",
+  "version-string": "0.0.1",
+  "dependencies": [
+	"cuda",
+	"boost",
+    "fftw3",
+	"gsl",
+	"glew",
+	"freeglut"
+  ]
+}
+

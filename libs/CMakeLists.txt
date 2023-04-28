@@ -1,0 +1,6 @@
+if(APPLE)
+message("No good Cuda support for Mac")
+else(APPLE)
+ADD_SUBDIRECTORY( Cinddit )
+ADD_SUBDIRECTORY( CindditPythonLib )
+endif(APPLE)
