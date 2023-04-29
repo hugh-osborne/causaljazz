@@ -1,4 +1,4 @@
-from fastmass import fastmass
+from pycausaljazz import pycausaljazz
 import numpy as np
 import numpy.random as random
 import matplotlib.pyplot as plt
@@ -62,35 +62,35 @@ num_iterations = 1000
 poisson_input_rate = 3.0
 dt = 0.1
 
-adex_grid = fastmass.generate(adex, [-90.0,-5.0], [75.0,445.0], [300,300], -40, -70.6, [0,100], dt) #600 x 300
-lif_grid = fastmass.generate(lif,  [-140.0,0.0], [140.0,0.005], [600,1], -40, -70.6, [0,0], dt)
-cond_grid = fastmass.generate(cond,  [-80.0,-1.0,-5.0], [40.0,26.0,55.0], [150,100,100], -50.4, -70.6, [0,0,0], dt)
+adex_grid = pycausaljazz.generate(adex, [-90.0,-5.0], [75.0,445.0], [300,300], -40, -70.6, [0,100], dt) #600 x 300
+lif_grid = pycausaljazz.generate(lif,  [-140.0,0.0], [140.0,0.005], [600,1], -40, -70.6, [0,0], dt)
+cond_grid = pycausaljazz.generate(cond,  [-80.0,-1.0,-5.0], [40.0,26.0,55.0], [150,100,100], -50.4, -70.6, [0,0,0], dt)
 
-fastmass.init(dt, False)
+pycausaljazz.init(dt, False)
 
-pop1 = fastmass.addPopulation(adex_grid, [-70.6, 0.1], 0.0, True)
-pop2 = fastmass.addPopulation(lif_grid, [-70.6, 0.001], 0.0, False)
+pop1 = pycausaljazz.addPopulation(adex_grid, [-70.6, 0.1], 0.0, True)
+pop2 = pycausaljazz.addPopulation(lif_grid, [-70.6, 0.001], 0.0, False)
 
-conn1 = fastmass.poisson(pop1, [1.0, 0.0])
+conn1 = pycausaljazz.poisson(pop1, [1.0, 0.0])
 
-fastmass.connect(pop1,pop2,500.0,[1.0,0.0],0.0)
+pycausaljazz.connect(pop1,pop2,500.0,[1.0,0.0],0.0)
 
-fastmass.start()
+pycausaljazz.start()
 
 start_time = time.perf_counter()
 rates1 = []
 rates2 = []
 times = []
 for i in range(num_iterations):
-    fastmass.postRate(pop1,conn1,poisson_input_rate)
-    fastmass.step()
-    rates1 = rates1 + [fastmass.readRates()[0]*1000]
-    rates2 = rates2 + [fastmass.readRates()[1]*1000]
+    pycausaljazz.postRate(pop1,conn1,poisson_input_rate)
+    pycausaljazz.step()
+    rates1 = rates1 + [pycausaljazz.readRates()[0]*1000]
+    rates2 = rates2 + [pycausaljazz.readRates()[1]*1000]
     times = times + [i*dt/1000]
     
 print("Completed in : ", time.perf_counter() - start_time, "seconds.")
 
-fastmass.shutdown()
+pycausaljazz.shutdown()
 
 fig, ax = plt.subplots(1, 1)
 

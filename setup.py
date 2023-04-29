@@ -20,7 +20,7 @@ def main():
     
     # Build empty miind and miind_api directories in root folder. 
     # We don't want them there in the repo as they're just placeholders.
-    fastmc_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fastmc')
+    fastmc_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'causaljazz')
     try:
         os.mkdir(fastmc_dir)
     except:
@@ -36,30 +36,26 @@ def main():
 
     package_version = "0.0.1"
 
-    package_name = "fastmc"
+    package_name = "pycausaljazz"
 
     with open("README.md", "r", encoding="utf-8") as fh:
         long_description = fh.read()
 
-    packages = ["fastmc", "fastmass", "fastgraph"]
+    packages = ["pycausaljazz"]
 
     package_data = {
-        "fastmc": [],
-        "fastmass": [],
-        "fastgraph": []
+        "pycausaljazz": []
     }
 
     # Files from CMake output to copy to package.
     # Path regexes with forward slashes relative to CMake install dir.
     rearrange_cmake_output_data = {
-        "fastmc": (["lib/fastmc.pyd"] if platform == "win32" else []) + (["bin\/.+\.dll"] if platform == "win32" else []) + (["lib/fastmc.so"] if platform not in ["win32"] else []) + (["lib/fastmc.so"] if platform not in ["win32","darwin"] else []),
-        "fastmass": (["lib/fastmass.pyd"] if platform == "win32" else []) + (["bin\/.+\.dll"] if platform == "win32" else []) + (["lib/fastmass.so"] if platform not in ["win32"] else []) + (["lib/fastmass.so"] if platform not in ["win32","darwin"] else []),
-        "fastgraph": (["lib/fastgraph.pyd"] if platform == "win32" else []) + (["bin\/.+\.dll"] if platform == "win32" else []) + (["lib/fastgraph.so"] if platform not in ["win32"] else []) + (["lib/fastgraph.so"] if platform not in ["win32","darwin"] else [])
+        "pycausaljazz": (["lib/pycausaljazz.pyd"] if platform == "win32" else []) + (["bin\/.+\.dll"] if platform == "win32" else []) + (["lib/pycausaljazz.so"] if platform not in ["win32"] else []) + (["lib/pycausaljazz.so"] if platform not in ["win32","darwin"] else [])
     }
 
     # Files in sourcetree outside package dir that should be copied to package.
     # Raw paths relative to sourcetree root.
-    files_outside_package_dir = {"fastmc": [],"fastmass": [], "fastgraph": []}
+    files_outside_package_dir = {"pycausaljazz": []}
     
     # vcpkg builds libraries which are too new for manylinux2014 so
     # is disabled for Linux
@@ -100,8 +96,8 @@ def main():
     skbuild.setup(
         name=package_name,
         version=package_version,
-        url="https://github.com/dekamps/miind",
-        description="fastmc",
+        url="https://github.com/hugh-osborne/causaljazz",
+        description="pycausaljazz",
         long_description=long_description,
         long_description_content_type="text/markdown",
         packages=packages,
