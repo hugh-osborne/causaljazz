@@ -1,1 +1,0 @@
-Causal Inference for Noisy Discretised Distributions in Time (pronounced "Cindy")
