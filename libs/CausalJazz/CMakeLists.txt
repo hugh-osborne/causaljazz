@@ -26,13 +26,19 @@ INCLUDE_DIRECTORIES(
 
 list(APPEND TWOD_SRC
 NdGrid.cpp
+TimeVaryingNdGrid.cpp
+CudaGrid.cu
 MassSimulation.cu
+CausalJazz.cu
 MassPopulation.cu
 CudaEuler.cu
 display.cpp
 )
 list(APPEND TWOD_HEADERS
 NdGrid.hpp
+TimeVaryingNdGrid.hpp
+CudaGrid.cuh
+CausalJazz.cuh
 MassSimulation.cuh
 MassPopulation.cuh
 CudaEuler.cuh

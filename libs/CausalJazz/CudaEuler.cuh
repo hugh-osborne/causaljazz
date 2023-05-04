@@ -213,14 +213,77 @@ __global__ void PassRatesToQueues(
     inttype queue_length,
     inttype current_position);
 
-// Mass Graph
+// New Causal Jazz
 
 __global__ void GenerateJointDistribution(
-    inttype num_cells,
-    fptype* mass,
-    int* offsets,
-    fptype* proportions,
-    inttype* transition_counts,
-    inttype* transition_offsets);
+    inttype num_AB_cells,
+    fptype* out,
+    inttype num_A_cells,
+    fptype* A,
+    fptype* BgivenA);
+
+__global__ void GenerateJointDistributionFromFork(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype num_A_cells,
+    fptype* A,
+    inttype num_BgivenA_cells,
+    fptype* BgivenA,
+    inttype num_CgivenA_cells,
+    fptype* CgivenA);
+
+__global__ void GenerateJointDistributionFromCollider(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype num_A_cells,
+    fptype* A,
+    inttype num_B_cells,
+    fptype* B,
+    fptype* CgivenAB);
+
+__global__ void GenerateMarginalAB(
+    inttype num_marginal_cells,
+    fptype* out,
+    inttype A_res,
+    inttype B_res,
+    inttype C_res,
+    fptype* A);
+
+__global__ void GenerateMarginalAC(
+    inttype num_marginal_cells,
+    fptype* out,
+    inttype A_res,
+    inttype B_res,
+    inttype C_res,
+    fptype* A);
+
+__global__ void GenerateMarginalBC(
+    inttype num_marginal_cells,
+    fptype* out,
+    inttype A_res,
+    inttype B_res,
+    inttype C_res,
+    fptype* A);
+
+__global__ void GenerateMarginalA(
+    inttype num_marginal_cells,
+    fptype* out,
+    inttype A_res,
+    inttype B_res,
+    fptype* A);
+
+__global__ void GenerateMarginalB(
+    inttype num_marginal_cells,
+    fptype* out,
+    inttype A_res,
+    inttype B_res,
+    fptype* A);
+
+__global__ void GenerateConditional(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype cond_dim,
+    inttype cond_res,
+    fptype* A);
 
 #endif

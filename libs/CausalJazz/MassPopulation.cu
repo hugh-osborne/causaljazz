@@ -19,7 +19,7 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 	}
 }
 
-MassPopulation::MassPopulation(NdGrid* _grid, unsigned int _start_cell, double refractory_period) :
+MassPopulation::MassPopulation(TimeVaryingNdGrid* _grid, unsigned int _start_cell, double refractory_period) :
 	grid(_grid),
 	start_cell(_start_cell),
 	block_size(BLOCK_SIZE),

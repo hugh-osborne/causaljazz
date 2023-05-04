@@ -68,24 +68,29 @@ cond_grid = pycausaljazz.generate(cond,  [-80.0,-1.0,-5.0], [40.0,26.0,55.0], [1
 
 pycausaljazz.init(dt, False)
 
-pop1 = pycausaljazz.addPopulation(adex_grid, [-70.6, 0.1], 0.0, True)
+pop1 = pycausaljazz.addPopulation(adex_grid, [-70.6, 0.1], 0.0, False)
 pop2 = pycausaljazz.addPopulation(lif_grid, [-70.6, 0.001], 0.0, False)
+pop3 = pycausaljazz.addPopulation(cond_grid, [-70.6, 0.001, 0.001], 0.0, True)
 
 conn1 = pycausaljazz.poisson(pop1, [1.0, 0.0])
+conn2 = pycausaljazz.poisson(pop3, [1.0, 0.0])
 
-pycausaljazz.connect(pop1,pop2,500.0,[1.0,0.0],0.0)
+pycausaljazz.connect(pop1,pop2,100.0,[1.0,0.0],0.0)
 
 pycausaljazz.start()
 
 start_time = time.perf_counter()
 rates1 = []
 rates2 = []
+rates3 = []
 times = []
 for i in range(num_iterations):
     pycausaljazz.postRate(pop1,conn1,poisson_input_rate)
+    pycausaljazz.postRate(pop3,conn2,poisson_input_rate)
     pycausaljazz.step()
     rates1 = rates1 + [pycausaljazz.readRates()[0]*1000]
     rates2 = rates2 + [pycausaljazz.readRates()[1]*1000]
+    rates3 = rates3 + [pycausaljazz.readRates()[2]*1000]
     times = times + [i*dt/1000]
     
 print("Completed in : ", time.perf_counter() - start_time, "seconds.")
@@ -97,6 +102,7 @@ fig, ax = plt.subplots(1, 1)
 ax.set_title('Firing Rate')
 ax.plot(times, rates1)
 ax.plot(times, rates2)
+ax.plot(times, rates3)
 fig.tight_layout()
 
 plt.show()

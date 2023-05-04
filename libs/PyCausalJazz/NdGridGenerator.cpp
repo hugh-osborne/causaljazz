@@ -4,7 +4,7 @@
 
 NdGridGenerator::NdGridGenerator(std::vector<double> _base, std::vector<double> _dims, std::vector<unsigned int> _res,
     double _threshold_v, double _reset_v, std::vector<double> _reset_jump_relative, double _timestep) {
-    grid = new NdGrid(_base, _dims, _res, _threshold_v, _reset_v, _reset_jump_relative, _timestep);
+    grid = new TimeVaryingNdGrid(_base, _dims, _res, _threshold_v, _reset_v, _reset_jump_relative, _timestep);
 }
 
 NdGridGenerator::~NdGridGenerator() {

@@ -2,7 +2,7 @@
 #define GRID_PYTHON_HPP
 
 #include "pyhelper.h"
-#include "causaljazz/NdGrid.hpp"
+#include "causaljazz/TimeVaryingNdGrid.hpp"
 #include <string>
 #include <vector>
 #include <map>
@@ -23,10 +23,10 @@ public:
 
     std::map<std::vector<unsigned int>, std::vector<double>> calculateTransitionMatrix();
 
-    NdGrid* getGrid() { return grid; }
+    TimeVaryingNdGrid* getGrid() { return grid; }
 private:
 
-    NdGrid* grid;
+    TimeVaryingNdGrid* grid;
 };
 
 #endif

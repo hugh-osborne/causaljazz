@@ -8,7 +8,7 @@
 #include <cuda_runtime.h>
 #include <curand.h>
 #include <curand_kernel.h>
-#include "NdGrid.hpp"
+#include "TimeVaryingNdGrid.hpp"
 
 class MassSimulation;
 
@@ -34,7 +34,7 @@ public:
 
 class MassPopulation {
 public:
-	MassPopulation(NdGrid* _grid, unsigned int _start_cell = 0, double refractory_period = 0.0);
+	MassPopulation(TimeVaryingNdGrid* _grid, unsigned int _start_cell = 0, double refractory_period = 0.0);
 	~MassPopulation();
 
 	void addToSimulation(inttype population_id, MassSimulation* sim);
@@ -43,7 +43,7 @@ public:
 	void UpdateMass(unsigned int iteration_count);
 	void CleanupMass();
 
-	NdGrid* getGrid() { return grid; }
+	TimeVaryingNdGrid* getGrid() { return grid; }
 
 	unsigned int getNumCells() { return num_cells; }
 
@@ -78,7 +78,7 @@ private:
 
 	unsigned int start_cell;
 	unsigned int num_cells;
-	NdGrid* grid;
+	TimeVaryingNdGrid* grid;
 
 	fptype sim_time;
 	bool loaded_mass_for_this_iteration;

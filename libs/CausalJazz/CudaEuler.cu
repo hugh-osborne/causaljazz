@@ -545,3 +545,178 @@ __global__ void PassRatesToQueues(
 {
     queue[modulo(current_position-1, queue_length)] = stored_rates[population_id];
 }
+
+// Result is A = dim0, B = dim1
+__global__ void GenerateJointDistribution(
+    inttype num_AB_cells,
+    fptype* out,
+    inttype num_A_cells,
+    fptype* A,
+    fptype* BgivenA)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_AB_cells; i += stride) {
+        inttype A_index = modulo(i, num_A_cells);
+        out[i] = A[A_index] * BgivenA[i];
+    }
+}
+
+// Result is A = dim0, B = dim1, C = dim2
+__global__ void GenerateJointDistributionFromFork(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype num_A_cells,
+    fptype* A,
+    inttype num_B_cells,
+    fptype* BgivenA,
+    inttype num_C_cells,
+    fptype* CgivenA)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_ABC_cells; i += stride) {
+        inttype C_joint = int(i / (num_A_cells * num_B_cells));
+        inttype B_joint = int(modulo(i, num_A_cells * num_B_cells) / num_A_cells);
+        inttype A_joint = modulo(i, num_A_cells);
+        out[i] = A[A_joint] * BgivenA[(B_joint*num_A_cells)+A_joint] * CgivenA[(C_joint * num_A_cells) + A_joint];
+    }
+}
+
+// Result is A = dim0, B = dim1, C = dim2
+__global__ void GenerateJointDistributionFromCollider(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype num_A_cells,
+    fptype* A,
+    inttype num_B_cells,
+    fptype* B,
+    fptype* CgivenAB)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_ABC_cells; i += stride) {
+        inttype C_joint = int(i / (num_A_cells * num_B_cells));
+        inttype B_joint = int(modulo(i, num_A_cells * num_B_cells) / num_A_cells);
+        inttype A_joint = modulo(i, num_A_cells);
+        out[i] = A[A_joint] * B[B_joint] * CgivenAB[i];
+    }
+}
+
+// Result is AB from ABC
+__global__ void GenerateMarginalAB(
+    inttype num_marginal_cells,
+    fptype* out,
+    inttype A_res,
+    inttype B_res,
+    inttype C_res,
+    fptype* A)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_marginal_cells; i += stride) {
+
+        inttype B_joint = int(modulo(i, A_res * B_res) / A_res);
+        inttype A_joint = modulo(i, A_res);
+
+        fptype total_mass = 0.0;
+        for (unsigned int j = 0; j < C_res; j++) {
+            total_mass += A[(j * A_res * B_res) + (B_joint * A_res) + A_joint];
+        }
+        out[i] = total_mass;
+    }
+}
+
+// Result is BC from ABC
+__global__ void GenerateMarginalBC(
+    inttype num_marginal_cells,
+    fptype* out,
+    inttype A_res,
+    inttype B_res,
+    inttype C_res,
+    fptype* A)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_marginal_cells; i += stride) {
+
+        inttype C_joint = int(i / (A_res * B_res));
+        inttype B_joint = int(modulo(i, A_res * B_res) / A_res);
+
+        fptype total_mass = 0.0;
+        for (unsigned int j = 0; j < A_res; j++) {
+            total_mass += A[(C_joint * A_res * B_res) + (B_joint * A_res) + j];
+        }
+        out[i] = total_mass;
+    }
+}
+
+// Result is AC from ABC
+__global__ void GenerateMarginalAC(
+    inttype num_marginal_cells,
+    fptype* out,
+    inttype A_res,
+    inttype B_res,
+    inttype C_res,
+    fptype* A)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_marginal_cells; i += stride) {
+
+        inttype C_joint = int(i / (A_res * B_res));
+        inttype A_joint = modulo(i, A_res);
+
+        fptype total_mass = 0.0;
+        for (unsigned int j = 0; j < B_res; j++) {
+            total_mass += A[(C_joint * A_res * B_res) + (j * A_res) + A_joint];
+        }
+        out[i] = total_mass;
+    }
+}
+
+// Result is A from AB
+__global__ void GenerateMarginalA(
+    inttype num_marginal_cells,
+    fptype* out,
+    inttype A_res,
+    inttype B_res,
+    fptype* A)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_marginal_cells; i += stride) {
+        fptype total_mass = 0.0;
+        for (unsigned int j = 0; j < B_res; j++) {
+            total_mass += A[(j * A_res) + i];
+        }
+        out[i] = total_mass;
+    }
+}
+
+// Result is B from AB
+__global__ void GenerateMarginalB(
+    inttype num_marginal_cells,
+    fptype* out,
+    inttype A_res,
+    inttype B_res,
+    fptype* A)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_marginal_cells; i += stride) {
+        fptype total_mass = 0.0;
+        for (unsigned int j = 0; j < A_res; j++) {
+            total_mass += A[(i * A_res) + j];
+        }
+        out[i] = total_mass;
+    }
+}
