@@ -14,7 +14,8 @@ public:
 	void buildJointDistributionFromFork(CudaGrid* A, CudaGrid* BgivenA, CudaGrid* CgivenA, unsigned int out);
 	void buildJointDistributionFromCollider(CudaGrid* A, CudaGrid* B, CudaGrid* CgivenAB, unsigned int out);
 	void buildMarginalDistribution(CudaGrid* A, unsigned int droppedDim, unsigned int out);
-	void reduceJointDistributionToConditional(CudaGrid* A, unsigned int given, unsigned int out);
+	void reduceJointDistributionToConditional(CudaGrid* A, std::vector<unsigned int> given, CudaGrid* givenDist, unsigned int out);
+	CudaGrid* getGrid(unsigned int grid) { return grids[grid]; }
 	
 private:
 	std::vector<CudaGrid*> grids;

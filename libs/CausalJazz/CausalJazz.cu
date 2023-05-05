@@ -23,7 +23,9 @@ CausalJazz::~CausalJazz() {
 }
 
 unsigned int CausalJazz::addDistribution(std::vector<double> _base, std::vector<double> _dims, std::vector<unsigned int> _res, std::vector<double> A) {
+
 	grids.push_back(new CudaGrid(_base, _dims, _res, A));
+
 	return grids.size() - 1;
 }
 
@@ -67,9 +69,9 @@ void CausalJazz::buildJointDistributionFromCollider(CudaGrid* A, CudaGrid* B, Cu
 
 void CausalJazz::buildMarginalDistribution(CudaGrid* A, unsigned int droppedDim, unsigned int out) {
 
-	if (A->getNumDimensions() == 3) {
-		unsigned int numBlocks = (grids[out]->getTotalNumCells() + block_size - 1) / block_size;
+	unsigned int numBlocks = (grids[out]->getTotalNumCells() + block_size - 1) / block_size;
 
+	if (A->getNumDimensions() == 3) {
 		if (droppedDim == 0) { // Drop A
 			GenerateMarginalBC << <numBlocks, block_size >> > (
 				grids[out]->getTotalNumCells(),
@@ -99,8 +101,6 @@ void CausalJazz::buildMarginalDistribution(CudaGrid* A, unsigned int droppedDim,
 		}
 	}
 	else if (A->getNumDimensions() == 2) {
-		unsigned int numBlocks = (grids[out]->getTotalNumCells() + block_size - 1) / block_size;
-
 		if (droppedDim == 0) { // Drop A
 			GenerateMarginalB << <numBlocks, block_size >> > (
 				grids[out]->getTotalNumCells(),
@@ -120,6 +120,83 @@ void CausalJazz::buildMarginalDistribution(CudaGrid* A, unsigned int droppedDim,
 	}
 }
 
-void CausalJazz::reduceJointDistributionToConditional(CudaGrid* A, unsigned int given, unsigned int out) {
+void CausalJazz::reduceJointDistributionToConditional(CudaGrid* A, std::vector<unsigned int> given, CudaGrid* givenDist, unsigned int out) {
 
+	unsigned int numBlocks = (grids[out]->getTotalNumCells() + block_size - 1) / block_size;
+
+	if (A->getNumDimensions() == 3) {
+		if (given.size() == 2) {
+			if ((given[0] == 0 && given[1] == 1) || (given[0] == 1 && given[1] == 0)) { // C|AB
+				GenerateCGivenAB << <numBlocks, block_size >> > (
+					grids[out]->getTotalNumCells(),
+					grids[out]->getProbabilityMass(),
+					A->getRes()[0],
+					A->getRes()[1],
+					givenDist->getProbabilityMass(),
+					A->getProbabilityMass());
+			} else if ((given[0] == 2 && given[1] == 1) || (given[0] == 1 && given[1] == 2)) { // A|BC
+				GenerateAGivenBC << <numBlocks, block_size >> > (
+					grids[out]->getTotalNumCells(),
+					grids[out]->getProbabilityMass(),
+					A->getRes()[0],
+					A->getRes()[1],
+					givenDist->getProbabilityMass(),
+					A->getProbabilityMass());
+			} else if ((given[0] == 0 && given[1] == 2) || (given[0] == 2 && given[1] == 0)) { // B|AC
+				GenerateBGivenAC << <numBlocks, block_size >> > (
+					grids[out]->getTotalNumCells(),
+					grids[out]->getProbabilityMass(),
+					A->getRes()[0],
+					A->getRes()[1],
+					givenDist->getProbabilityMass(),
+					A->getProbabilityMass());
+			}
+		}
+		else if (given.size() == 1) {
+			if (given[0] == 0) { // BC|A
+				GenerateBCGivenA << <numBlocks, block_size >> > (
+					grids[out]->getTotalNumCells(),
+					grids[out]->getProbabilityMass(),
+					A->getRes()[0],
+					A->getRes()[1],
+					givenDist->getProbabilityMass(),
+					A->getProbabilityMass());
+			} else if (given[0] == 1) { // AC|B
+				GenerateACGivenB << <numBlocks, block_size >> > (
+					grids[out]->getTotalNumCells(),
+					grids[out]->getProbabilityMass(),
+					A->getRes()[0],
+					A->getRes()[1],
+					givenDist->getProbabilityMass(),
+					A->getProbabilityMass());
+			} else if (given[0] == 2) { // AB|C
+				GenerateABGivenC << <numBlocks, block_size >> > (
+					grids[out]->getTotalNumCells(),
+					grids[out]->getProbabilityMass(),
+					A->getRes()[0],
+					A->getRes()[1],
+					givenDist->getProbabilityMass(),
+					A->getProbabilityMass());
+			}
+		}
+	}
+	else if (A->getNumDimensions() == 2) {
+		if (given[0] == 0) { // B|A
+			GenerateBGivenA << <numBlocks, block_size >> > (
+				grids[out]->getTotalNumCells(),
+				grids[out]->getProbabilityMass(),
+				A->getRes()[0],
+				A->getRes()[1],
+				givenDist->getProbabilityMass(),
+				A->getProbabilityMass());
+		} else if (given[0] == 1) { // A|B
+			GenerateAGivenB << <numBlocks, block_size >> > (
+				grids[out]->getTotalNumCells(),
+				grids[out]->getProbabilityMass(),
+				A->getRes()[0],
+				A->getRes()[1],
+				givenDist->getProbabilityMass(),
+				A->getProbabilityMass());
+		}
+	}
 }

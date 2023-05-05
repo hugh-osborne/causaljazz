@@ -5,11 +5,14 @@
 #include "NdGridGenerator.hpp"
 #include "causaljazz/MassSimulation.cuh"
 #include "causaljazz/display.hpp"
+#include "causaljazz/CausalJazz.cuh"
 
 std::vector<NdGridGenerator*> grid_gens;
 std::vector<MassPopulation*> populations;
 MassSimulation* sim;
 unsigned int iteration_count = 0;
+CausalJazz* jazz;
+
 
 void ParseArguments(PyObject* args) {
     /* Get arbitrary number of strings from Py_Tuple */
@@ -719,6 +722,160 @@ PyObject* fastmass_readmass(PyObject* self, PyObject* args)
     }
 }
 
+
+PyObject* fastmass_newdist(PyObject* self, PyObject* args)
+{
+    try {
+        /* Get arbitrary number of strings from Py_Tuple */
+        Py_ssize_t i = 0;
+        PyObject* temp_p, * temp_p2;
+
+        std::vector<double> base;
+        std::vector<double> size;
+        std::vector<unsigned int> resolution;
+        std::vector<double> mass;
+
+        // base list
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        int pr_length = PyObject_Length(temp_p);
+        if (pr_length < 0)
+            return NULL;
+
+        base = std::vector<double>(pr_length);
+
+        for (int index = 0; index < pr_length; index++) {
+            PyObject* item;
+            item = PyList_GetItem(temp_p, index);
+            if (!PyFloat_Check(item))
+                base[index] = 0.0;
+            base[index] = PyFloat_AsDouble(item);
+        }
+
+        Py_XDECREF(temp_p);
+        i++;
+
+        // grid size list
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        pr_length = PyObject_Length(temp_p);
+        if (pr_length < 0)
+            return NULL;
+
+        size = std::vector<double>(pr_length);
+
+        for (int index = 0; index < pr_length; index++) {
+            PyObject* item;
+            item = PyList_GetItem(temp_p, index);
+            if (!PyFloat_Check(item))
+                size[index] = 0.0;
+            size[index] = PyFloat_AsDouble(item);
+        }
+
+        Py_XDECREF(temp_p);
+        i++;
+
+        // grid resolution list
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        pr_length = PyObject_Length(temp_p);
+        if (pr_length < 0)
+            return NULL;
+
+        resolution = std::vector<unsigned int>(pr_length);
+
+        for (int index = 0; index < pr_length; index++) {
+            PyObject* item;
+            item = PyList_GetItem(temp_p, index);
+            if (!PyFloat_Check(item))
+                resolution[index] = 0.0;
+            resolution[index] = PyLong_AsLong(item);
+        }
+
+        Py_XDECREF(temp_p);
+        i++;
+
+        // probability mass
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        pr_length = PyObject_Length(temp_p);
+        if (pr_length < 0)
+            return NULL;
+
+        mass = std::vector<double>(pr_length);
+
+        for (int index = 0; index < pr_length; index++) {
+            PyObject* item;
+            item = PyList_GetItem(temp_p, index);
+            if (!PyFloat_Check(item))
+                mass[index] = 0.0;
+            mass[index] = PyFloat_AsDouble(item);
+        }
+
+
+        if (!jazz) {
+            jazz = new CausalJazz();
+        }
+
+        unsigned int id = jazz->addDistribution(base, size, resolution, mass);
+
+        return Py_BuildValue("i", id);
+    }
+    catch (const std::exception& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    catch (...) {
+        PyErr_SetString(PyExc_RuntimeError, "Unhandled Exception during generateNdGrid()");
+        return NULL;
+    }
+}
+
+
+PyObject* fastmass_readdist(PyObject* self, PyObject* args)
+{
+    /* Get arbitrary number of strings from Py_Tuple */
+    Py_ssize_t i = 0;
+    PyObject* temp_p, * temp_p2;
+
+    unsigned int id;
+
+    try {
+
+        // grid id
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            id = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        CudaGrid* grid = jazz->getGrid(id);
+
+        std::vector<fptype> mass = grid->readProbabilityMass();
+
+        PyObject* tuple = PyTuple_New(mass.size());
+
+        for (int index = 0; index < mass.size(); index++) {
+            PyTuple_SetItem(tuple, index, Py_BuildValue("f", mass[index]));
+        }
+
+        return tuple;
+    }
+    catch (const std::exception& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    catch (...) {
+        PyErr_SetString(PyExc_RuntimeError, "Unhandled Exception during generateNdGrid()");
+        return NULL;
+    }
+}
+
+
 /*
  * List of functions to add to WinMiindPython in exec_WinMiindPython().
  */
@@ -735,6 +892,8 @@ static PyMethodDef pycausaljazz_functions[] = {
     {"postRate", (PyCFunction)fastmass_post, METH_VARARGS, "Post firing rate to poisson input."},
     {"readRates", (PyCFunction)fastmass_readrates, METH_VARARGS, "Read firing rates of each populations."},
     {"readMass", (PyCFunction)fastmass_readmass, METH_VARARGS, "Read mass of a given population."},
+    {"newDist", (PyCFunction)fastmass_newdist, METH_VARARGS, "Jazz : Create a new distribution."},
+    {"readDist", (PyCFunction)fastmass_readdist, METH_VARARGS, "Jazz : Read a distribution."},
     { NULL, NULL, 0, NULL } /* marks end of array */
 };
 

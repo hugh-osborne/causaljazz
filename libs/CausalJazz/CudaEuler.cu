@@ -720,3 +720,166 @@ __global__ void GenerateMarginalB(
         out[i] = total_mass;
     }
 }
+
+// Result is A|BC
+__global__ void GenerateAGivenBC(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype A_res,
+    inttype B_res,
+    fptype* BC,
+    fptype* ABC)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_ABC_cells; i += stride) {
+
+        inttype C_joint = int(i / (A_res * B_res));
+        inttype B_joint = int(modulo(i, A_res * B_res) / A_res);
+
+        out[i] = ABC[i] / BC[(C_joint*B_res) + B_joint];
+    }
+}
+
+// Result is B|AC
+__global__ void GenerateBGivenAC(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype A_res,
+    inttype B_res,
+    fptype* AC,
+    fptype* ABC)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_ABC_cells; i += stride) {
+
+        inttype C_joint = int(i / (A_res * B_res));
+        inttype A_joint = modulo(i, A_res);
+
+        out[i] = ABC[i] / AC[(C_joint * B_res) + A_joint];
+    }
+}
+
+// Result is C|AB
+__global__ void GenerateCGivenAB(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype A_res,
+    inttype B_res,
+    fptype* AB,
+    fptype* ABC)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_ABC_cells; i += stride) {
+
+        inttype B_joint = int(modulo(i, A_res * B_res) / A_res);
+        inttype A_joint = modulo(i, A_res);
+
+        out[i] = ABC[i] / AB[(B_joint * A_res) + A_joint];
+    }
+}
+
+// Result is AB|C
+__global__ void GenerateABGivenC(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype A_res,
+    inttype B_res,
+    fptype* C,
+    fptype* ABC)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_ABC_cells; i += stride) {
+
+        inttype C_joint = int(i / (A_res * B_res));
+
+        out[i] = ABC[i] / C[C_joint];
+    }
+}
+
+// Result is AC|B
+__global__ void GenerateACGivenB(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype A_res,
+    inttype B_res,
+    fptype* B,
+    fptype* ABC)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_ABC_cells; i += stride) {
+
+        inttype B_joint = int(modulo(i, A_res * B_res) / A_res);
+
+        out[i] = ABC[i] / B[B_joint];
+    }
+}
+
+// Result is BC|A
+__global__ void GenerateBCGivenA(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype A_res,
+    inttype B_res,
+    fptype* A,
+    fptype* ABC)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_ABC_cells; i += stride) {
+
+        inttype A_joint = modulo(i, A_res);
+
+        out[i] = ABC[i] / A[A_joint];
+    }
+}
+
+// Result is A|B
+__global__ void GenerateAGivenB(
+    inttype num_AB_cells,
+    fptype* out,
+    inttype A_res,
+    inttype B_res,
+    fptype* B,
+    fptype* AB)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_AB_cells; i += stride) {
+
+        inttype B_joint = int(i / A_res);
+
+        out[i] = AB[i] / B[B_joint];
+    }
+}
+
+// Result is B|A
+__global__ void GenerateBGivenA(
+    inttype num_AB_cells,
+    fptype* out,
+    inttype A_res,
+    inttype B_res,
+    fptype* A,
+    fptype* AB)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_AB_cells; i += stride) {
+
+        inttype A_joint = modulo(i, A_res);
+
+        out[i] = AB[i] / A[A_joint];
+    }
+}

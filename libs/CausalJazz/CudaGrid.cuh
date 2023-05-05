@@ -16,6 +16,7 @@ public:
 	~CudaGrid();
 
 	fptype* getProbabilityMass() { return probability_mass; }
+	std::vector<fptype> readProbabilityMass();
 
 private:
 	

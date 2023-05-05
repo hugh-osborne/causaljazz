@@ -33,6 +33,9 @@ NdGrid::~NdGrid() {
 }
 
 void NdGrid::getResOffset(unsigned int _count, std::vector<unsigned int> &_offsets, std::vector<unsigned int> _res) {
+    if (_res.size() == 1)
+        return;
+
     _count *= _res[0];
     _offsets.push_back(_count);
 

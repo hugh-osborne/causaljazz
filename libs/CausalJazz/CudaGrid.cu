@@ -21,7 +21,6 @@ CudaGrid::CudaGrid(std::vector<double> _base, std::vector<double> _dims, std::ve
 : NdGrid(_base, _dims, _res) {
 
 	// TODO: Sanity check that A.size == num_cells
-
 	// Convert A from doubles to fptypes
 	std::vector<fptype> copydata;
 	for (auto a : A)
@@ -33,4 +32,10 @@ CudaGrid::CudaGrid(std::vector<double> _base, std::vector<double> _dims, std::ve
 
 CudaGrid::~CudaGrid() {
 
+}
+
+std::vector<fptype> CudaGrid::readProbabilityMass() {
+	std::vector<fptype> out(getTotalNumCells());
+	checkCudaErrors(cudaMemcpy(&out[0], probability_mass, getTotalNumCells() * sizeof(fptype), cudaMemcpyDeviceToHost));
+	return out;
 }

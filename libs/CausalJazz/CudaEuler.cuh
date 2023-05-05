@@ -247,7 +247,7 @@ __global__ void GenerateMarginalAB(
     inttype A_res,
     inttype B_res,
     inttype C_res,
-    fptype* A);
+    fptype* ABC);
 
 __global__ void GenerateMarginalAC(
     inttype num_marginal_cells,
@@ -255,7 +255,7 @@ __global__ void GenerateMarginalAC(
     inttype A_res,
     inttype B_res,
     inttype C_res,
-    fptype* A);
+    fptype* ABC);
 
 __global__ void GenerateMarginalBC(
     inttype num_marginal_cells,
@@ -263,27 +263,84 @@ __global__ void GenerateMarginalBC(
     inttype A_res,
     inttype B_res,
     inttype C_res,
-    fptype* A);
+    fptype* ABC);
 
 __global__ void GenerateMarginalA(
     inttype num_marginal_cells,
     fptype* out,
     inttype A_res,
     inttype B_res,
-    fptype* A);
+    fptype* AB);
 
 __global__ void GenerateMarginalB(
     inttype num_marginal_cells,
     fptype* out,
     inttype A_res,
     inttype B_res,
-    fptype* A);
+    fptype* AB);
 
-__global__ void GenerateConditional(
+__global__ void GenerateAGivenBC(
     inttype num_ABC_cells,
     fptype* out,
-    inttype cond_dim,
-    inttype cond_res,
-    fptype* A);
+    inttype A_res,
+    inttype B_res,
+    fptype* BC,
+    fptype* ABC);
+
+__global__ void GenerateBGivenAC(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype A_res,
+    inttype B_res,
+    fptype* AC,
+    fptype* ABC);
+
+__global__ void GenerateCGivenAB(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype A_res,
+    inttype B_res,
+    fptype* AB,
+    fptype* ABC);
+
+__global__ void GenerateABGivenC(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype A_res,
+    inttype B_res,
+    fptype* C,
+    fptype* ABC);
+
+__global__ void GenerateACGivenB(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype A_res,
+    inttype B_res,
+    fptype* B,
+    fptype* ABC);
+
+__global__ void GenerateBCGivenA(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype A_res,
+    inttype B_res,
+    fptype* A,
+    fptype* ABC);
+
+__global__ void GenerateAGivenB(
+    inttype num_AB_cells,
+    fptype* out,
+    inttype A_res,
+    inttype B_res,
+    fptype* B,
+    fptype* AB);
+
+__global__ void GenerateBGivenA(
+    inttype num_AB_cells,
+    fptype* out,
+    inttype A_res,
+    inttype B_res,
+    fptype* A,
+    fptype* AB);
 
 #endif
