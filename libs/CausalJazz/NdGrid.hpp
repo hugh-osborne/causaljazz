@@ -9,6 +9,7 @@ class NdGrid {
 public:
     
     NdGrid(std::vector<double> _base, std::vector<double> _dims, std::vector<unsigned int> _res);
+    NdGrid(NdGrid& other);
     ~NdGrid();
 
     unsigned int getNumDimensions() { return num_dimensions; }

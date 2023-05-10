@@ -24,28 +24,28 @@ CausalJazz::~CausalJazz() {
 
 unsigned int CausalJazz::addDistribution(std::vector<double> _base, std::vector<double> _dims, std::vector<unsigned int> _res, std::vector<double> A) {
 
-	grids.push_back(new CudaGrid(_base, _dims, _res, A));
+	grids.push_back(CudaGrid(_base, _dims, _res, A));
 
 	return grids.size() - 1;
 }
 
 void CausalJazz::buildJointDistributionFromChain(CudaGrid* A, CudaGrid* BgivenA, unsigned int out) {
-	unsigned int numBlocks = (grids[out]->getTotalNumCells() + block_size - 1) / block_size;
+	unsigned int numBlocks = (grids[out].getTotalNumCells() + block_size - 1) / block_size;
 
 	GenerateJointDistribution << <numBlocks, block_size >> > (
-		grids[out]->getTotalNumCells(),
-		grids[out]->getProbabilityMass(),
+		grids[out].getTotalNumCells(),
+		grids[out].getProbabilityMass(),
 		A->getTotalNumCells(),
 		A->getProbabilityMass(),
 		BgivenA->getProbabilityMass());
 }
 
 void CausalJazz::buildJointDistributionFromFork(CudaGrid* A, CudaGrid* BgivenA, CudaGrid* CgivenA, unsigned int out) {
-	unsigned int numBlocks = (grids[out]->getTotalNumCells() + block_size - 1) / block_size;
+	unsigned int numBlocks = (grids[out].getTotalNumCells() + block_size - 1) / block_size;
 
 	GenerateJointDistributionFromFork << <numBlocks, block_size >> > (
-		grids[out]->getTotalNumCells(),
-		grids[out]->getProbabilityMass(),
+		grids[out].getTotalNumCells(),
+		grids[out].getProbabilityMass(),
 		A->getTotalNumCells(),
 		A->getProbabilityMass(),
 		BgivenA->getRes()[1],
@@ -55,11 +55,11 @@ void CausalJazz::buildJointDistributionFromFork(CudaGrid* A, CudaGrid* BgivenA, 
 }
 
 void CausalJazz::buildJointDistributionFromCollider(CudaGrid* A, CudaGrid* B, CudaGrid* CgivenAB, unsigned int out) {
-	unsigned int numBlocks = (grids[out]->getTotalNumCells() + block_size - 1) / block_size;
+	unsigned int numBlocks = (grids[out].getTotalNumCells() + block_size - 1) / block_size;
 
 	GenerateJointDistributionFromCollider << <numBlocks, block_size >> > (
-		grids[out]->getTotalNumCells(),
-		grids[out]->getProbabilityMass(),
+		grids[out].getTotalNumCells(),
+		grids[out].getProbabilityMass(),
 		A->getTotalNumCells(),
 		A->getProbabilityMass(),
 		B->getTotalNumCells(),
@@ -69,13 +69,13 @@ void CausalJazz::buildJointDistributionFromCollider(CudaGrid* A, CudaGrid* B, Cu
 
 void CausalJazz::buildMarginalDistribution(CudaGrid* A, unsigned int droppedDim, unsigned int out) {
 
-	unsigned int numBlocks = (grids[out]->getTotalNumCells() + block_size - 1) / block_size;
+	unsigned int numBlocks = (grids[out].getTotalNumCells() + block_size - 1) / block_size;
 
 	if (A->getNumDimensions() == 3) {
 		if (droppedDim == 0) { // Drop A
 			GenerateMarginalBC << <numBlocks, block_size >> > (
-				grids[out]->getTotalNumCells(),
-				grids[out]->getProbabilityMass(),
+				grids[out].getTotalNumCells(),
+				grids[out].getProbabilityMass(),
 				A->getRes()[0],
 				A->getRes()[1],
 				A->getRes()[2],
@@ -83,8 +83,8 @@ void CausalJazz::buildMarginalDistribution(CudaGrid* A, unsigned int droppedDim,
 		}
 		else if (droppedDim == 1) { // Drop B
 			GenerateMarginalAC << <numBlocks, block_size >> > (
-				grids[out]->getTotalNumCells(),
-				grids[out]->getProbabilityMass(),
+				grids[out].getTotalNumCells(),
+				grids[out].getProbabilityMass(),
 				A->getRes()[0],
 				A->getRes()[1],
 				A->getRes()[2],
@@ -92,8 +92,8 @@ void CausalJazz::buildMarginalDistribution(CudaGrid* A, unsigned int droppedDim,
 		}
 		else if (droppedDim == 2) { // Drop C
 			GenerateMarginalAB << <numBlocks, block_size >> > (
-				grids[out]->getTotalNumCells(),
-				grids[out]->getProbabilityMass(),
+				grids[out].getTotalNumCells(),
+				grids[out].getProbabilityMass(),
 				A->getRes()[0],
 				A->getRes()[1],
 				A->getRes()[2],
@@ -103,16 +103,16 @@ void CausalJazz::buildMarginalDistribution(CudaGrid* A, unsigned int droppedDim,
 	else if (A->getNumDimensions() == 2) {
 		if (droppedDim == 0) { // Drop A
 			GenerateMarginalB << <numBlocks, block_size >> > (
-				grids[out]->getTotalNumCells(),
-				grids[out]->getProbabilityMass(),
+				grids[out].getTotalNumCells(),
+				grids[out].getProbabilityMass(),
 				A->getRes()[0],
 				A->getRes()[1],
 				A->getProbabilityMass());
 		}
 		else if (droppedDim == 1) { // Drop B
 			GenerateMarginalA << <numBlocks, block_size >> > (
-				grids[out]->getTotalNumCells(),
-				grids[out]->getProbabilityMass(),
+				grids[out].getTotalNumCells(),
+				grids[out].getProbabilityMass(),
 				A->getRes()[0],
 				A->getRes()[1],
 				A->getProbabilityMass());
@@ -122,30 +122,30 @@ void CausalJazz::buildMarginalDistribution(CudaGrid* A, unsigned int droppedDim,
 
 void CausalJazz::reduceJointDistributionToConditional(CudaGrid* A, std::vector<unsigned int> given, CudaGrid* givenDist, unsigned int out) {
 
-	unsigned int numBlocks = (grids[out]->getTotalNumCells() + block_size - 1) / block_size;
+	unsigned int numBlocks = (grids[out].getTotalNumCells() + block_size - 1) / block_size;
 
 	if (A->getNumDimensions() == 3) {
 		if (given.size() == 2) {
 			if ((given[0] == 0 && given[1] == 1) || (given[0] == 1 && given[1] == 0)) { // C|AB
 				GenerateCGivenAB << <numBlocks, block_size >> > (
-					grids[out]->getTotalNumCells(),
-					grids[out]->getProbabilityMass(),
+					grids[out].getTotalNumCells(),
+					grids[out].getProbabilityMass(),
 					A->getRes()[0],
 					A->getRes()[1],
 					givenDist->getProbabilityMass(),
 					A->getProbabilityMass());
 			} else if ((given[0] == 2 && given[1] == 1) || (given[0] == 1 && given[1] == 2)) { // A|BC
 				GenerateAGivenBC << <numBlocks, block_size >> > (
-					grids[out]->getTotalNumCells(),
-					grids[out]->getProbabilityMass(),
+					grids[out].getTotalNumCells(),
+					grids[out].getProbabilityMass(),
 					A->getRes()[0],
 					A->getRes()[1],
 					givenDist->getProbabilityMass(),
 					A->getProbabilityMass());
 			} else if ((given[0] == 0 && given[1] == 2) || (given[0] == 2 && given[1] == 0)) { // B|AC
 				GenerateBGivenAC << <numBlocks, block_size >> > (
-					grids[out]->getTotalNumCells(),
-					grids[out]->getProbabilityMass(),
+					grids[out].getTotalNumCells(),
+					grids[out].getProbabilityMass(),
 					A->getRes()[0],
 					A->getRes()[1],
 					givenDist->getProbabilityMass(),
@@ -155,24 +155,24 @@ void CausalJazz::reduceJointDistributionToConditional(CudaGrid* A, std::vector<u
 		else if (given.size() == 1) {
 			if (given[0] == 0) { // BC|A
 				GenerateBCGivenA << <numBlocks, block_size >> > (
-					grids[out]->getTotalNumCells(),
-					grids[out]->getProbabilityMass(),
+					grids[out].getTotalNumCells(),
+					grids[out].getProbabilityMass(),
 					A->getRes()[0],
 					A->getRes()[1],
 					givenDist->getProbabilityMass(),
 					A->getProbabilityMass());
 			} else if (given[0] == 1) { // AC|B
 				GenerateACGivenB << <numBlocks, block_size >> > (
-					grids[out]->getTotalNumCells(),
-					grids[out]->getProbabilityMass(),
+					grids[out].getTotalNumCells(),
+					grids[out].getProbabilityMass(),
 					A->getRes()[0],
 					A->getRes()[1],
 					givenDist->getProbabilityMass(),
 					A->getProbabilityMass());
 			} else if (given[0] == 2) { // AB|C
 				GenerateABGivenC << <numBlocks, block_size >> > (
-					grids[out]->getTotalNumCells(),
-					grids[out]->getProbabilityMass(),
+					grids[out].getTotalNumCells(),
+					grids[out].getProbabilityMass(),
 					A->getRes()[0],
 					A->getRes()[1],
 					givenDist->getProbabilityMass(),
@@ -183,16 +183,16 @@ void CausalJazz::reduceJointDistributionToConditional(CudaGrid* A, std::vector<u
 	else if (A->getNumDimensions() == 2) {
 		if (given[0] == 0) { // B|A
 			GenerateBGivenA << <numBlocks, block_size >> > (
-				grids[out]->getTotalNumCells(),
-				grids[out]->getProbabilityMass(),
+				grids[out].getTotalNumCells(),
+				grids[out].getProbabilityMass(),
 				A->getRes()[0],
 				A->getRes()[1],
 				givenDist->getProbabilityMass(),
 				A->getProbabilityMass());
 		} else if (given[0] == 1) { // A|B
 			GenerateAGivenB << <numBlocks, block_size >> > (
-				grids[out]->getTotalNumCells(),
-				grids[out]->getProbabilityMass(),
+				grids[out].getTotalNumCells(),
+				grids[out].getProbabilityMass(),
 				A->getRes()[0],
 				A->getRes()[1],
 				givenDist->getProbabilityMass(),

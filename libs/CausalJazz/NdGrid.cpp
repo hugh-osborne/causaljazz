@@ -29,6 +29,16 @@ NdGrid::NdGrid(std::vector<double> _base, std::vector<double> _dims, std::vector
     }
 }
 
+NdGrid::NdGrid(NdGrid& other)
+    : num_dimensions(other.num_dimensions),
+    base(other.base),
+    dims(other.dims),
+    res(other.res),
+    res_offsets(other.res_offsets),
+    cell_widths(other.cell_widths),
+    total_cells(other.total_cells)
+{}
+
 NdGrid::~NdGrid() {
 }
 

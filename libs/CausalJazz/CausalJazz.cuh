@@ -15,10 +15,10 @@ public:
 	void buildJointDistributionFromCollider(CudaGrid* A, CudaGrid* B, CudaGrid* CgivenAB, unsigned int out);
 	void buildMarginalDistribution(CudaGrid* A, unsigned int droppedDim, unsigned int out);
 	void reduceJointDistributionToConditional(CudaGrid* A, std::vector<unsigned int> given, CudaGrid* givenDist, unsigned int out);
-	CudaGrid* getGrid(unsigned int grid) { return grids[grid]; }
+	CudaGrid* getGrid(unsigned int grid) { return &grids[grid]; }
 	
 private:
-	std::vector<CudaGrid*> grids;
+	std::vector<CudaGrid> grids;
 
 	// Other CUDA helper values
 	int block_size;

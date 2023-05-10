@@ -546,6 +546,8 @@ __global__ void PassRatesToQueues(
     queue[modulo(current_position-1, queue_length)] = stored_rates[population_id];
 }
 
+// Causal Jazz
+
 // Result is A = dim0, B = dim1
 __global__ void GenerateJointDistribution(
     inttype num_AB_cells,
@@ -717,6 +719,7 @@ __global__ void GenerateMarginalB(
         for (unsigned int j = 0; j < A_res; j++) {
             total_mass += A[(i * A_res) + j];
         }
+        
         out[i] = total_mass;
     }
 }
