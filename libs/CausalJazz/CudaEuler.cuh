@@ -215,14 +215,51 @@ __global__ void PassRatesToQueues(
 
 // New Causal Jazz
 
-__global__ void GenerateJointDistribution(
+__global__ void GenerateJointDistributionGivenA(
     inttype num_AB_cells,
     fptype* out,
     inttype num_A_cells,
     fptype* A,
     fptype* BgivenA);
 
+__global__ void GenerateJointDistributionGivenB(
+    inttype num_AB_cells,
+    fptype* out,
+    inttype num_A_cells,
+    fptype* B,
+    fptype* AgivenB);
+
 __global__ void GenerateJointDistributionFromFork(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype num_A_cells,
+    fptype* A,
+    inttype num_BgivenA_cells,
+    fptype* BgivenA,
+    inttype num_CgivenA_cells,
+    fptype* CgivenA);
+
+__global__ void GenerateJointDistributionFromForkBgivenA(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype num_A_cells,
+    fptype* A,
+    inttype num_BgivenA_cells,
+    fptype* BgivenA,
+    inttype num_CgivenA_cells,
+    fptype* CgivenA);
+
+__global__ void GenerateJointDistributionFromForkCgivenA(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype num_A_cells,
+    fptype* A,
+    inttype num_BgivenA_cells,
+    fptype* BgivenA,
+    inttype num_CgivenA_cells,
+    fptype* CgivenA);
+
+__global__ void GenerateJointDistributionFromForkBgivenACgivenA(
     inttype num_ABC_cells,
     fptype* out,
     inttype num_A_cells,

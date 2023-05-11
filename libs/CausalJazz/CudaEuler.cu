@@ -549,7 +549,7 @@ __global__ void PassRatesToQueues(
 // Causal Jazz
 
 // Result is A = dim0, B = dim1
-__global__ void GenerateJointDistribution(
+__global__ void GenerateJointDistributionGivenA(
     inttype num_AB_cells,
     fptype* out,
     inttype num_A_cells,
@@ -562,6 +562,23 @@ __global__ void GenerateJointDistribution(
     for (int i = index; i < num_AB_cells; i += stride) {
         inttype A_index = modulo(i, num_A_cells);
         out[i] = A[A_index] * BgivenA[i];
+    }
+}
+
+// Result is A = dim0, B = dim1
+__global__ void GenerateJointDistributionGivenB(
+    inttype num_AB_cells,
+    fptype* out,
+    inttype num_A_cells,
+    fptype* B,
+    fptype* AgivenB)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_AB_cells; i += stride) {
+        inttype B_index = int(i / num_A_cells);
+        out[i] = B[B_index] * AgivenB[i];
     }
 }
 
@@ -584,6 +601,69 @@ __global__ void GenerateJointDistributionFromFork(
         inttype B_joint = int(modulo(i, num_A_cells * num_B_cells) / num_A_cells);
         inttype A_joint = modulo(i, num_A_cells);
         out[i] = A[A_joint] * BgivenA[(B_joint*num_A_cells)+A_joint] * CgivenA[(C_joint * num_A_cells) + A_joint];
+    }
+}
+
+__global__ void GenerateJointDistributionFromForkBgivenA(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype num_A_cells,
+    fptype* A,
+    inttype num_B_cells,
+    fptype* BgivenA,
+    inttype num_C_cells,
+    fptype* CgivenA)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_ABC_cells; i += stride) {
+        inttype C_joint = int(i / (num_A_cells * num_B_cells));
+        inttype B_joint = int(modulo(i, num_A_cells * num_B_cells) / num_A_cells);
+        inttype A_joint = modulo(i, num_A_cells);
+        out[i] = A[A_joint] * BgivenA[(A_joint * num_B_cells) + B_joint] * CgivenA[(C_joint * num_A_cells) + A_joint];
+    }
+}
+
+__global__ void GenerateJointDistributionFromForkCgivenA(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype num_A_cells,
+    fptype* A,
+    inttype num_B_cells,
+    fptype* BgivenA,
+    inttype num_C_cells,
+    fptype* CgivenA)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_ABC_cells; i += stride) {
+        inttype C_joint = int(i / (num_A_cells * num_B_cells));
+        inttype B_joint = int(modulo(i, num_A_cells * num_B_cells) / num_A_cells);
+        inttype A_joint = modulo(i, num_A_cells);
+        out[i] = A[A_joint] * BgivenA[(B_joint * num_A_cells) + A_joint] * CgivenA[(A_joint * num_C_cells) + C_joint];
+    }
+}
+
+__global__ void GenerateJointDistributionFromForkBgivenACgivenA(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype num_A_cells,
+    fptype* A,
+    inttype num_B_cells,
+    fptype* BgivenA,
+    inttype num_C_cells,
+    fptype* CgivenA)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_ABC_cells; i += stride) {
+        inttype C_joint = int(i / (num_A_cells * num_B_cells));
+        inttype B_joint = int(modulo(i, num_A_cells * num_B_cells) / num_A_cells);
+        inttype A_joint = modulo(i, num_A_cells);
+        out[i] = A[A_joint] * BgivenA[(A_joint * num_B_cells) + B_joint] * CgivenA[(A_joint * num_C_cells) + C_joint];
     }
 }
 
@@ -622,7 +702,7 @@ __global__ void GenerateMarginalAB(
 
     for (int i = index; i < num_marginal_cells; i += stride) {
 
-        inttype B_joint = int(modulo(i, A_res * B_res) / A_res);
+        inttype B_joint = int(i / A_res);
         inttype A_joint = modulo(i, A_res);
 
         fptype total_mass = 0.0;
@@ -647,8 +727,8 @@ __global__ void GenerateMarginalBC(
 
     for (int i = index; i < num_marginal_cells; i += stride) {
 
-        inttype C_joint = int(i / (A_res * B_res));
-        inttype B_joint = int(modulo(i, A_res * B_res) / A_res);
+        inttype C_joint = int(i / B_res);
+        inttype B_joint = modulo(i, B_res);
 
         fptype total_mass = 0.0;
         for (unsigned int j = 0; j < A_res; j++) {
@@ -672,7 +752,7 @@ __global__ void GenerateMarginalAC(
 
     for (int i = index; i < num_marginal_cells; i += stride) {
 
-        inttype C_joint = int(i / (A_res * B_res));
+        inttype C_joint = int(i / A_res);
         inttype A_joint = modulo(i, A_res);
 
         fptype total_mass = 0.0;

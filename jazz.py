@@ -7,6 +7,33 @@ from scipy.stats import norm
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.cm as cm
 
+
+def plot3D(points, data):
+    flattened_points_x = []
+    flattened_points_y = []
+    flattened_points_z = []
+    flattened_joint_col = []
+
+    for x in range(100):
+        for y in range(100):
+            for z in range(100):
+                if (data[x][y][z] > 0.000001):
+                    flattened_points_x = flattened_points_x + [points[x][y][z][0]]
+                    flattened_points_y = flattened_points_y + [points[x][y][z][1]]
+                    flattened_points_z = flattened_points_z + [points[x][y][z][2]]
+                    flattened_col = data[x][y][z]
+
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_subplot(111, projection='3d')
+
+    img = ax.scatter(flattened_points_x, flattened_points_y, flattened_points_z, marker='s',
+                     s=20, alpha=0.01, color='green')
+
+    ax.set_title("3D Heatmap")
+    ax.set_xlabel('X-axis')
+    ax.set_ylabel('Y-axis')
+    ax.set_zlabel('Z-axis')
+
 # Try loading then reading 1D distribution
 print("1D")
 x = np.linspace(-2.0, 2.0, 100)
@@ -18,7 +45,7 @@ fig, ax = plt.subplots(1, 1)
 
 ax.set_title('')
 ax.plot(x, what)
-ax.plot(x, looped)
+ax.plot(x, looped, linestyle='--')
 fig.tight_layout()
 plt.show()
 
@@ -111,7 +138,7 @@ plt.show()
 
 joint_from_conditional = pycausaljazz.newDist([-2.0,-2.0],[4.0,4.0],[100,100],[a for a in np.zeros(10000)])
 
-pycausaljazz.chain(x_marginal, y_given_x, joint_from_conditional)
+pycausaljazz.chain(x_marginal, 0, y_given_x, joint_from_conditional)
 
 dist_joint_from_conditional = pycausaljazz.readDist(joint_from_conditional)
 
@@ -124,7 +151,7 @@ plt.show()
 
 joint_from_conditional2 = pycausaljazz.newDist([-2.0,-2.0],[4.0,4.0],[100,100],[a for a in np.zeros(10000)])
 
-pycausaljazz.chain(y_marginal, x_given_y, joint_from_conditional2)
+pycausaljazz.chain(y_marginal, 1, x_given_y, joint_from_conditional2)
 
 dist_joint_from_conditional2 = pycausaljazz.readDist(joint_from_conditional2)
 
@@ -184,42 +211,111 @@ joint = joint.reshape((100,100,100))
 looped = np.array(looped)
 looped = looped.reshape((100,100,100))
 
-flattened_points_x = []
-flattened_points_y = []
-flattened_points_z = []
-flattened_joint_col = []
 
-flattened_looped_points_x = []
-flattened_looped_points_y = []
-flattened_looped_points_z = []
-flattened_looped_col = []
-for x in range(100):
-    for y in range(100):
-        for z in range(100):
-            if (joint[x][y][z] > 0.000001):
-                flattened_points_x = flattened_points_x + [points[x][y][z][0]]
-                flattened_points_y = flattened_points_y + [points[x][y][z][1]]
-                flattened_points_z = flattened_points_z + [points[x][y][z][2]]
-                flattened_col = joint[x][y][z]
-            if (looped[x][y][z] > 0.000001):
-                flattened_looped_points_x = flattened_looped_points_x + [points[x][y][z][0]]
-                flattened_looped_points_y = flattened_looped_points_y + [points[x][y][z][1]]
-                flattened_looped_points_z = flattened_looped_points_z + [points[x][y][z][2]]
-                flattened_looped_col = looped[x][y][z]
-
-fig = plt.figure(figsize=(10, 10))
-ax = fig.add_subplot(111, projection='3d')
-
-img = ax.scatter(flattened_points_x, flattened_points_y, flattened_points_z, marker='s',
-                 s=20, alpha=0.01, color='green')
-
-img = ax.scatter(flattened_looped_points_x, flattened_looped_points_y, flattened_looped_points_z, marker='s',
-                 s=20, alpha=0.01, color='red')
-
-ax.set_title("3D Heatmap")
-ax.set_xlabel('X-axis')
-ax.set_ylabel('Y-axis')
-ax.set_zlabel('Z-axis')
+plot3D(points, joint)
+plot3D(points, looped)
 
 plt.show()
+
+# marginals
+
+xy_marg = pycausaljazz.newDist([-2.0,-2.0],[4.0,4.0],[100,100],[a for a in np.zeros(10000)])
+yz_marg = pycausaljazz.newDist([-2.0,-2.0],[4.0,4.0],[100,100],[a for a in np.zeros(10000)])
+xz_marg = pycausaljazz.newDist([-2.0,-2.0],[4.0,4.0],[100,100],[a for a in np.zeros(10000)])
+
+pycausaljazz.marginal(id, 2, xy_marg)
+pycausaljazz.marginal(id, 0, yz_marg)
+pycausaljazz.marginal(id, 1, xz_marg)
+
+dist_xy_marg = pycausaljazz.readDist(xy_marg)
+dist_yz_marg = pycausaljazz.readDist(yz_marg)
+dist_xz_marg = pycausaljazz.readDist(xz_marg)
+
+fig, ax = plt.subplots(1, 1)
+dist_xy_marg = np.array(dist_xy_marg)
+dist_xy_marg = dist_xy_marg.reshape((100,100))
+plt.imshow(dist_xy_marg, cmap='hot', interpolation='nearest')
+
+fig, ax = plt.subplots(1, 1)
+dist_yz_marg = np.array(dist_yz_marg)
+dist_yz_marg = dist_yz_marg.reshape((100,100))
+plt.imshow(dist_yz_marg, cmap='hot', interpolation='nearest')
+
+fig, ax = plt.subplots(1, 1)
+dist_xz_marg = np.array(dist_xz_marg)
+dist_xz_marg = dist_xz_marg.reshape((100,100))
+plt.imshow(dist_xz_marg, cmap='hot', interpolation='nearest')
+
+plt.show()
+
+# Conditionals
+
+x_given_yz = pycausaljazz.newDist([-2.0,-2.0,-2.0],[4.0,4.0,4.0],[100,100,100],[a for a in np.zeros(1000000)])
+y_given_xz = pycausaljazz.newDist([-2.0,-2.0,-2.0],[4.0,4.0,4.0],[100,100,100],[a for a in np.zeros(1000000)])
+z_given_xy = pycausaljazz.newDist([-2.0,-2.0,-2.0],[4.0,4.0,4.0],[100,100,100],[a for a in np.zeros(1000000)])
+
+pycausaljazz.conditional(id, [1,2], yz_marg, x_given_yz)
+pycausaljazz.conditional(id, [0,2], xz_marg, y_given_xz)
+pycausaljazz.conditional(id, [0,1], xy_marg, z_given_xy)
+
+dist_x_given_yz = pycausaljazz.readDist(x_given_yz)
+dist_y_given_xz = pycausaljazz.readDist(y_given_xz)
+dist_z_given_xy = pycausaljazz.readDist(z_given_xy)
+
+dist_x_given_yz = np.array(dist_x_given_yz)
+dist_x_given_yz = dist_x_given_yz.reshape((100,100,100))
+
+dist_y_given_xz = np.array(dist_y_given_xz)
+dist_y_given_xz = dist_y_given_xz.reshape((100,100,100))
+
+dist_z_given_xy = np.array(dist_z_given_xy)
+dist_z_given_xy = dist_z_given_xy.reshape((100,100,100))
+
+# Takes forever to plot so commenting out
+#plot3D(points, dist_x_given_yz)
+#plt.show()
+#plot3D(points, dist_y_given_xz)
+#plt.show()
+#plot3D(points, dist_z_given_xy)
+#plt.show()
+
+# Multiply two conditionals and a marginal to get a 3D joint distribution (fork structure)
+
+# First, does the marginal x from xy and xz match? This needs a better test - currently the distribution is too symmetric to tell
+
+x_from_xy_marg = pycausaljazz.newDist([-2.0],[4.0],[100],[a for a in np.zeros(100)])
+x_from_xz_marg = pycausaljazz.newDist([-2.0],[4.0],[100],[a for a in np.zeros(100)])
+
+pycausaljazz.marginal(xy_marg, 1, x_from_xy_marg)
+pycausaljazz.marginal(xz_marg, 1, x_from_xz_marg)
+
+dist_x_from_xy_marg = pycausaljazz.readDist(x_from_xy_marg)
+dist_x_from_xz_marg = pycausaljazz.readDist(x_from_xz_marg)
+
+fig, ax = plt.subplots(1, 1)
+ax.set_title('')
+ax.plot(np.linspace(-2.0, 2.0, 100), dist_x_from_xy_marg)
+ax.plot(np.linspace(-2.0, 2.0, 100), dist_x_from_xz_marg, linestyle='--')
+fig.tight_layout()
+plt.show()
+
+# Generate the original
+
+y_given_x = pycausaljazz.newDist([-2.0,-2.0],[4.0,4.0],[100,100],[a for a in np.zeros(10000)])
+z_given_x = pycausaljazz.newDist([-2.0,-2.0],[4.0,4.0],[100,100],[a for a in np.zeros(10000)])
+joint_from_fork = pycausaljazz.newDist([-2.0,-2.0,-2.0],[4.0,4.0,4.0],[100,100,100],[a for a in np.zeros(1000000)])
+
+pycausaljazz.conditional(xy_marg, [0], x_from_xy_marg, y_given_x)
+pycausaljazz.conditional(xz_marg, [0], x_from_xz_marg, z_given_x)
+pycausaljazz.fork(x_from_xy_marg, 0, y_given_x, 0, z_given_x, joint_from_fork)
+
+dist_joint_from_fork = pycausaljazz.readDist(joint_from_fork)
+dist_joint_from_fork = np.array(dist_joint_from_fork)
+dist_joint_from_fork = dist_joint_from_fork.reshape((100,100,100))
+
+plot3D(points, dist_joint_from_fork)
+plt.show()
+
+
+# Multiply a conditional by a marginal to get the original joint distribution (collider structure)
 

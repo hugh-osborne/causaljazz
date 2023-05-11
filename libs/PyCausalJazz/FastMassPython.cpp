@@ -1026,6 +1026,7 @@ PyObject* fastmass_chain(PyObject* self, PyObject* args)
     PyObject* temp_p, * temp_p2;
 
     unsigned int marginal_id;
+    unsigned int givendim;
     unsigned int conditional_id;
     unsigned int joint_id;
 
@@ -1037,6 +1038,18 @@ PyObject* fastmass_chain(PyObject* self, PyObject* args)
             /* Convert number to python float then C double*/
             temp_p2 = PyNumber_Long(temp_p);
             marginal_id = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        // The dimension which is the "given" marginal. Eg. in P(A)P(B|A): dimension = 0, P(B)P(A|B): dimension = 1
+        // Might be better to split this function into two to avoid the user having to work it out.
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            givendim = (int)PyLong_AsLong(temp_p2);
             Py_DECREF(temp_p2);
             i++;
         }
@@ -1066,7 +1079,107 @@ PyObject* fastmass_chain(PyObject* self, PyObject* args)
         CudaGrid* marginal_grid = jazz->getGrid(marginal_id);
         CudaGrid* conditional_grid = jazz->getGrid(conditional_id);
 
-        jazz->buildJointDistributionFromChain(marginal_grid, conditional_grid, joint_id);
+        jazz->buildJointDistributionFromChain(marginal_grid, givendim, conditional_grid, joint_id);
+
+        Py_RETURN_NONE;
+    }
+    catch (const std::exception& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    catch (...) {
+        PyErr_SetString(PyExc_RuntimeError, "Unhandled Exception during generateNdGrid()");
+        return NULL;
+    }
+}
+
+PyObject* fastmass_fork(PyObject* self, PyObject* args)
+{
+    /* Get arbitrary number of strings from Py_Tuple */
+    Py_ssize_t i = 0;
+    PyObject* temp_p, * temp_p2;
+
+    unsigned int marginal_id;
+    unsigned int givendim;
+    unsigned int conditional_id;
+    unsigned int givendim2;
+    unsigned int conditional_id2;
+    unsigned int joint_id;
+
+    try {
+        // marginal dist id
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            marginal_id = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        // The dimension which is the "given" marginal. Eg. in P(A)P(B|A): dimension = 0, P(B)P(A|B): dimension = 1
+        // Might be better to split this function into two to avoid the user having to work it out.
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            givendim = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        // conditional dist id
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            conditional_id = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        // The dimension which is the "given" marginal. Eg. in P(A)P(B|A): dimension = 0, P(B)P(A|B): dimension = 1
+        // Might be better to split this function into two to avoid the user having to work it out.
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            givendim2 = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        // conditional dist id
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            conditional_id2 = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        // joint dist id
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            joint_id = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        CudaGrid* marginal_grid = jazz->getGrid(marginal_id);
+        CudaGrid* conditional_grid = jazz->getGrid(conditional_id);
+        CudaGrid* conditional_grid2 = jazz->getGrid(conditional_id2);
+
+        jazz->buildJointDistributionFromFork(marginal_grid, givendim, conditional_grid, givendim2, conditional_grid2, joint_id);
 
         Py_RETURN_NONE;
     }
@@ -1102,6 +1215,7 @@ static PyMethodDef pycausaljazz_functions[] = {
     {"marginal", (PyCFunction)fastmass_marginal, METH_VARARGS, "Jazz : Calculate a marginal."},
     {"conditional", (PyCFunction)fastmass_conditional, METH_VARARGS, "Jazz : Calculate a conditional."},
     {"chain", (PyCFunction)fastmass_chain, METH_VARARGS, "Jazz : Calculate a joint distribution from a chain structure p(A)*p(B|A)."},
+    {"fork", (PyCFunction)fastmass_fork, METH_VARARGS, "Jazz : Calculate a joint distribution from a fork structure p(A)*p(B|A)*p(C|A)."},
     { NULL, NULL, 0, NULL } /* marks end of array */
 };
 
