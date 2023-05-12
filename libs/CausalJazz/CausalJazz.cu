@@ -98,17 +98,37 @@ void CausalJazz::buildJointDistributionFromFork(CudaGrid* A, unsigned int givend
 	
 }
 
-void CausalJazz::buildJointDistributionFromCollider(CudaGrid* A, CudaGrid* B, CudaGrid* CgivenAB, unsigned int out) {
+void CausalJazz::buildJointDistributionFromCollider(CudaGrid* AB, std::vector<unsigned int> givendims, CudaGrid* CgivenAB, unsigned int out) {
 	unsigned int numBlocks = (grids[out].getTotalNumCells() + block_size - 1) / block_size;
 
-	GenerateJointDistributionFromCollider << <numBlocks, block_size >> > (
-		grids[out].getTotalNumCells(),
-		grids[out].getProbabilityMass(),
-		A->getTotalNumCells(),
-		A->getProbabilityMass(),
-		B->getTotalNumCells(),
-		B->getProbabilityMass(),
-		CgivenAB->getProbabilityMass());
+	if (givendims[0] == 0 && givendims[1] == 1) {
+		GenerateJointDistributionFromColliderGivenAB << <numBlocks, block_size >> > (
+			grids[out].getTotalNumCells(),
+			grids[out].getProbabilityMass(),
+			AB->getRes()[0],
+			AB->getRes()[1],
+			AB->getProbabilityMass(),
+			CgivenAB->getProbabilityMass());
+	}
+	else if (givendims[0] == 0 && givendims[1] == 2) {
+		GenerateJointDistributionFromColliderGivenAC << <numBlocks, block_size >> > (
+			grids[out].getTotalNumCells(),
+			grids[out].getProbabilityMass(),
+			AB->getRes()[0],
+			AB->getRes()[1],
+			AB->getProbabilityMass(),
+			CgivenAB->getProbabilityMass());
+	}
+	else if (givendims[0] == 1 && givendims[1] == 2) {
+		GenerateJointDistributionFromColliderGivenBC << <numBlocks, block_size >> > (
+			grids[out].getTotalNumCells(),
+			grids[out].getProbabilityMass(),
+			AB->getRes()[0],
+			AB->getRes()[1],
+			AB->getProbabilityMass(),
+			CgivenAB->getProbabilityMass());
+	}
+	
 }
 
 void CausalJazz::buildMarginalDistribution(CudaGrid* A, unsigned int droppedDim, unsigned int out) {

@@ -269,14 +269,29 @@ __global__ void GenerateJointDistributionFromForkBgivenACgivenA(
     inttype num_CgivenA_cells,
     fptype* CgivenA);
 
-__global__ void GenerateJointDistributionFromCollider(
+__global__ void GenerateJointDistributionFromColliderGivenAB(
     inttype num_ABC_cells,
     fptype* out,
     inttype num_A_cells,
-    fptype* A,
     inttype num_B_cells,
-    fptype* B,
+    fptype* AB,
     fptype* CgivenAB);
+
+__global__ void GenerateJointDistributionFromColliderGivenBC(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype num_A_cells,
+    inttype num_B_cells,
+    fptype* BC,
+    fptype* AgivenBC);
+
+__global__ void GenerateJointDistributionFromColliderGivenAC(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype num_A_cells,
+    inttype num_B_cells,
+    fptype* AC,
+    fptype* BgivenAC);
 
 __global__ void GenerateMarginalAB(
     inttype num_marginal_cells,

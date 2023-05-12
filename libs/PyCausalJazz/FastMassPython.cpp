@@ -3,6 +3,7 @@
 #include <vector>
 #include <iostream>
 #include "NdGridGenerator.hpp"
+#include "CudaGridGenerator.hpp"
 #include "causaljazz/MassSimulation.cuh"
 #include "causaljazz/display.hpp"
 #include "causaljazz/CausalJazz.cuh"
@@ -12,6 +13,7 @@ std::vector<MassPopulation*> populations;
 MassSimulation* sim;
 unsigned int iteration_count = 0;
 CausalJazz* jazz;
+CudaGridGenerator cuda_grid_gen;
 
 
 void ParseArguments(PyObject* args) {
@@ -1193,6 +1195,329 @@ PyObject* fastmass_fork(PyObject* self, PyObject* args)
     }
 }
 
+PyObject* fastmass_collider(PyObject* self, PyObject* args)
+{
+    /* Get arbitrary number of strings from Py_Tuple */
+    Py_ssize_t i = 0;
+    PyObject* temp_p, * temp_p2;
+
+    unsigned int marginal_id;
+    std::vector<unsigned int> givendims;
+    unsigned int conditional_id;
+    unsigned int joint_id;
+
+    try {
+        // marginal dist id
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            marginal_id = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        // given dimensions
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        int pr_length = PyObject_Length(temp_p);
+        if (pr_length < 0)
+            return NULL;
+
+        givendims = std::vector<unsigned int>(pr_length);
+
+        for (int index = 0; index < pr_length; index++) {
+            PyObject* item;
+            item = PyList_GetItem(temp_p, index);
+            if (!PyFloat_Check(item))
+                givendims[index] = 0.0;
+            givendims[index] = PyLong_AsLong(item);
+        }
+
+        Py_XDECREF(temp_p);
+        i++;
+
+        // conditional dist id
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            conditional_id = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        // joint dist id
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            joint_id = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        CudaGrid* marginal_grid = jazz->getGrid(marginal_id);
+        CudaGrid* conditional_grid = jazz->getGrid(conditional_id);
+
+        jazz->buildJointDistributionFromCollider(marginal_grid, givendims, conditional_grid, joint_id);
+
+        Py_RETURN_NONE;
+    }
+    catch (const std::exception& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    catch (...) {
+        PyErr_SetString(PyExc_RuntimeError, "Unhandled Exception during generateNdGrid()");
+        return NULL;
+    }
+}
+
+PyObject* fastmass_function(PyObject* self, PyObject* args)
+{
+    try {
+        /* Get arbitrary number of strings from Py_Tuple */
+        Py_ssize_t i = 0;
+        PyObject* temp_p, * temp_p2;
+
+        std::vector<double> base;
+        std::vector<double> size;
+        std::vector<unsigned int> resolution;
+        PyObject* function;
+        unsigned int output_res;
+
+        // base list
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        int pr_length = PyObject_Length(temp_p);
+        if (pr_length < 0)
+            return NULL;
+
+        base = std::vector<double>(pr_length);
+
+        for (int index = 0; index < pr_length; index++) {
+            PyObject* item;
+            item = PyList_GetItem(temp_p, index);
+            if (!PyFloat_Check(item))
+                base[index] = 0.0;
+            base[index] = PyFloat_AsDouble(item);
+        }
+
+        Py_XDECREF(temp_p);
+        i++;
+
+        // grid size list
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        pr_length = PyObject_Length(temp_p);
+        if (pr_length < 0)
+            return NULL;
+
+        size = std::vector<double>(pr_length);
+
+        for (int index = 0; index < pr_length; index++) {
+            PyObject* item;
+            item = PyList_GetItem(temp_p, index);
+            if (!PyFloat_Check(item))
+                size[index] = 0.0;
+            size[index] = PyFloat_AsDouble(item);
+        }
+
+        Py_XDECREF(temp_p);
+        i++;
+
+        // grid resolution list
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        pr_length = PyObject_Length(temp_p);
+        if (pr_length < 0)
+            return NULL;
+
+        resolution = std::vector<unsigned int>(pr_length);
+
+        for (int index = 0; index < pr_length; index++) {
+            PyObject* item;
+            item = PyList_GetItem(temp_p, index);
+            if (!PyFloat_Check(item))
+                resolution[index] = 0.0;
+            resolution[index] = PyLong_AsLong(item);
+        }
+
+        Py_XDECREF(temp_p);
+        i++;
+
+        // The python function
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyCallable_Check(temp_p) == 1) {
+            function = temp_p;
+            i++;
+        }
+
+        // output resolution
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            output_res = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+
+        if (!jazz) {
+            jazz = new CausalJazz();
+        }
+
+        cuda_grid_gen.setPythonFunction(function);
+
+        unsigned int id = jazz->addGrid(cuda_grid_gen.generateCudaGridFromFunction(base, size, resolution, output_res));
+
+        return Py_BuildValue("i", id);
+    }
+    catch (const std::exception& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    catch (...) {
+        PyErr_SetString(PyExc_RuntimeError, "Unhandled Exception during generateNdGrid()");
+        return NULL;
+    }
+}
+
+PyObject* fastmass_base(PyObject* self, PyObject* args)
+{
+    /* Get arbitrary number of strings from Py_Tuple */
+    Py_ssize_t i = 0;
+    PyObject* temp_p, * temp_p2;
+
+    unsigned int id;
+
+    try {
+
+        // grid id
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            id = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        CudaGrid* grid = jazz->getGrid(id);
+
+        std::vector<double> base = grid->getBase();
+
+        PyObject* tuple = PyTuple_New(base.size());
+
+        for (int index = 0; index < base.size(); index++) {
+            PyTuple_SetItem(tuple, index, Py_BuildValue("f", base[index]));
+        }
+
+        return tuple;
+    }
+    catch (const std::exception& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    catch (...) {
+        PyErr_SetString(PyExc_RuntimeError, "Unhandled Exception during generateNdGrid()");
+        return NULL;
+    }
+}
+
+PyObject* fastmass_size(PyObject* self, PyObject* args)
+{
+    /* Get arbitrary number of strings from Py_Tuple */
+    Py_ssize_t i = 0;
+    PyObject* temp_p, * temp_p2;
+
+    unsigned int id;
+
+    try {
+
+        // grid id
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            id = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        CudaGrid* grid = jazz->getGrid(id);
+
+        std::vector<double> dims = grid->getDims();
+
+        PyObject* tuple = PyTuple_New(dims.size());
+
+        for (int index = 0; index < dims.size(); index++) {
+            PyTuple_SetItem(tuple, index, Py_BuildValue("f", dims[index]));
+        }
+
+        return tuple;
+    }
+    catch (const std::exception& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    catch (...) {
+        PyErr_SetString(PyExc_RuntimeError, "Unhandled Exception during generateNdGrid()");
+        return NULL;
+    }
+}
+
+PyObject* fastmass_res(PyObject* self, PyObject* args)
+{
+    /* Get arbitrary number of strings from Py_Tuple */
+    Py_ssize_t i = 0;
+    PyObject* temp_p, * temp_p2;
+
+    unsigned int id;
+
+    try {
+
+        // grid id
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            id = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        CudaGrid* grid = jazz->getGrid(id);
+
+        std::vector<unsigned int> res = grid->getRes();
+
+        PyObject* tuple = PyTuple_New(res.size());
+
+        for (int index = 0; index < res.size(); index++) {
+            PyTuple_SetItem(tuple, index, Py_BuildValue("i", res[index]));
+        }
+
+        return tuple;
+    }
+    catch (const std::exception& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    catch (...) {
+        PyErr_SetString(PyExc_RuntimeError, "Unhandled Exception during generateNdGrid()");
+        return NULL;
+    }
+}
 
 /*
  * List of functions to add to WinMiindPython in exec_WinMiindPython().
@@ -1216,6 +1541,11 @@ static PyMethodDef pycausaljazz_functions[] = {
     {"conditional", (PyCFunction)fastmass_conditional, METH_VARARGS, "Jazz : Calculate a conditional."},
     {"chain", (PyCFunction)fastmass_chain, METH_VARARGS, "Jazz : Calculate a joint distribution from a chain structure p(A)*p(B|A)."},
     {"fork", (PyCFunction)fastmass_fork, METH_VARARGS, "Jazz : Calculate a joint distribution from a fork structure p(A)*p(B|A)*p(C|A)."},
+    {"collider", (PyCFunction)fastmass_collider, METH_VARARGS, "Jazz : Calculate a joint distribution from a collider structure p(AB)*p(C|AB)."},
+    {"function", (PyCFunction)fastmass_function, METH_VARARGS, "Jazz : Calculate a conditional based on a python function."},
+    {"base", (PyCFunction)fastmass_base, METH_VARARGS, "Jazz : Return the base values for a given grid id."},
+    {"size", (PyCFunction)fastmass_size, METH_VARARGS, "Jazz : Return the size values for a given grid id."},
+    {"res", (PyCFunction)fastmass_res, METH_VARARGS, "Jazz : Return the res values for a given grid id."},
     { NULL, NULL, 0, NULL } /* marks end of array */
 };
 

@@ -668,13 +668,12 @@ __global__ void GenerateJointDistributionFromForkBgivenACgivenA(
 }
 
 // Result is A = dim0, B = dim1, C = dim2
-__global__ void GenerateJointDistributionFromCollider(
+__global__ void GenerateJointDistributionFromColliderGivenAB(
     inttype num_ABC_cells,
     fptype* out,
     inttype num_A_cells,
-    fptype* A,
     inttype num_B_cells,
-    fptype* B,
+    fptype* AB,
     fptype* CgivenAB)
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -684,7 +683,45 @@ __global__ void GenerateJointDistributionFromCollider(
         inttype C_joint = int(i / (num_A_cells * num_B_cells));
         inttype B_joint = int(modulo(i, num_A_cells * num_B_cells) / num_A_cells);
         inttype A_joint = modulo(i, num_A_cells);
-        out[i] = A[A_joint] * B[B_joint] * CgivenAB[i];
+        out[i] = AB[(B_joint*num_A_cells) + A_joint] * CgivenAB[i];
+    }
+}
+
+__global__ void GenerateJointDistributionFromColliderGivenBC(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype num_A_cells,
+    inttype num_B_cells,
+    fptype* BC,
+    fptype* AgivenBC)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_ABC_cells; i += stride) {
+        inttype C_joint = int(i / (num_A_cells * num_B_cells));
+        inttype B_joint = int(modulo(i, num_A_cells * num_B_cells) / num_A_cells);
+        inttype A_joint = modulo(i, num_A_cells);
+        out[i] = BC[(C_joint*num_B_cells) + B_joint] * AgivenBC[i];
+    }
+}
+
+__global__ void GenerateJointDistributionFromColliderGivenAC(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype num_A_cells,
+    inttype num_B_cells,
+    fptype* AC,
+    fptype* BgivenAC)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_ABC_cells; i += stride) {
+        inttype C_joint = int(i / (num_A_cells * num_B_cells));
+        inttype B_joint = int(modulo(i, num_A_cells * num_B_cells) / num_A_cells);
+        inttype A_joint = modulo(i, num_A_cells);
+        out[i] = AC[(C_joint*num_A_cells) + A_joint] * BgivenAC[i];
     }
 }
 

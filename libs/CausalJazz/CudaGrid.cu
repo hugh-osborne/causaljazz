@@ -30,8 +30,8 @@ CudaGrid::CudaGrid(std::vector<double> _base, std::vector<double> _dims, std::ve
 	checkCudaErrors(cudaMemcpy(probability_mass, &copydata[0], getTotalNumCells() * sizeof(fptype), cudaMemcpyHostToDevice));
 }
 
-CudaGrid::CudaGrid(CudaGrid& other)
-	: NdGrid(other),
+CudaGrid::CudaGrid(const CudaGrid& other)
+	: NdGrid(other.base, other.dims, other.res),
 	probability_mass(other.probability_mass)
 {}
 

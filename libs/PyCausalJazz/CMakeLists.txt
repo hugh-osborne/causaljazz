@@ -61,7 +61,7 @@ set ( LIBLIST
 	${PYTHON_LIBRARIES}
 )
 
-add_library( pycausaljazz ${LIB_TYPE} pyhelper.h NdGridGenerator.hpp NdGridGenerator.cpp FastMassPython.cpp)
+add_library( pycausaljazz ${LIB_TYPE} pyhelper.h CudaGridGenerator.hpp CudaGridGenerator.cpp NdGridGenerator.hpp NdGridGenerator.cpp FastMassPython.cpp)
 
 target_link_libraries( pycausaljazz ${LIBLIST})
 

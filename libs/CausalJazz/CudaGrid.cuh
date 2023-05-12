@@ -13,7 +13,7 @@
 class CudaGrid : public NdGrid{
 public:
 	CudaGrid(std::vector<double> _base, std::vector<double> _dims, std::vector<unsigned int> _res, std::vector<double> A);
-	CudaGrid(CudaGrid& other);
+	CudaGrid(const CudaGrid& other);
 	~CudaGrid();
 
 	fptype* getProbabilityMass() { return probability_mass; }
