@@ -12,6 +12,8 @@ public:
 	unsigned int addGrid(CudaGrid grid) {
 		grids.push_back(grid); return grids.size() - 1;
 	}
+	unsigned int addDistribution(CudaGrid* A, CudaGrid* B);
+	unsigned int addDistribution(CudaGrid* A, CudaGrid* B, CudaGrid* C);
 	unsigned int addDistribution(std::vector<double> _base, std::vector<double> _dims, std::vector<unsigned int> _res, std::vector<double> A);
 	void buildJointDistributionFromChain(CudaGrid* A, unsigned int givendim, CudaGrid* BgivenA, unsigned int out);
 	void buildJointDistributionFromFork(CudaGrid* A, unsigned int givendimBA, CudaGrid* BgivenA, unsigned int givendimCA, CudaGrid* CgivenA, unsigned int out);

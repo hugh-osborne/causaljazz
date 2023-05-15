@@ -22,6 +22,67 @@ CausalJazz::~CausalJazz() {
 
 }
 
+// Build a joint distribution from 2 *independent* grids
+unsigned int CausalJazz::addDistribution(CudaGrid* A, CudaGrid* B) {
+	std::vector<double> newbase = A->getBase();
+	std::vector<double> newdims = A->getDims();
+	std::vector<unsigned int> newres = A->getRes();
+
+	newbase.push_back(B->getBase()[0]);
+	newdims.push_back(B->getDims()[0]);
+	newres.push_back(B->getRes()[0]);
+
+	std::vector<double> init(A->getTotalNumCells() * B->getTotalNumCells());
+	grids.push_back(CudaGrid(newbase, newdims, newres, init));
+
+	unsigned int id = grids.size() - 1;
+
+	unsigned int numBlocks = (init.size() + block_size - 1) / block_size;
+
+	GenerateJointDistributionFrom2Independents << <numBlocks, block_size >> > (
+		grids[id].getTotalNumCells(),
+		grids[id].getProbabilityMass(),
+		A->getTotalNumCells(),
+		A->getProbabilityMass(),
+		B->getProbabilityMass());
+
+	return id;
+}
+
+// Build a joint distribution from 3 *independent* grids
+unsigned int CausalJazz::addDistribution(CudaGrid* A, CudaGrid* B, CudaGrid* C) {
+	std::vector<double> newbase = A->getBase();
+	std::vector<double> newdims = A->getDims();
+	std::vector<unsigned int> newres = A->getRes();
+
+	newbase.push_back(B->getBase()[0]);
+	newdims.push_back(B->getDims()[0]);
+	newres.push_back(B->getRes()[0]);
+
+	newbase.push_back(C->getBase()[0]);
+	newdims.push_back(C->getDims()[0]);
+	newres.push_back(C->getRes()[0]);
+
+	std::vector<double> init(A->getTotalNumCells() * B->getTotalNumCells() * C->getTotalNumCells());
+	grids.push_back(CudaGrid(newbase, newdims, newres, init));
+
+	unsigned int id = grids.size() - 1;
+
+	unsigned int numBlocks = (init.size() + block_size - 1) / block_size;
+
+	GenerateJointDistributionFrom3Independents << <numBlocks, block_size >> > (
+		grids[id].getTotalNumCells(),
+		grids[id].getProbabilityMass(),
+		A->getTotalNumCells(),
+		A->getProbabilityMass(),
+		B->getTotalNumCells(),
+		B->getProbabilityMass(),
+		C->getProbabilityMass());
+
+	return id;
+}
+
+// Build a distribution from the values in A
 unsigned int CausalJazz::addDistribution(std::vector<double> _base, std::vector<double> _dims, std::vector<unsigned int> _res, std::vector<double> A) {
 
 	grids.push_back(CudaGrid(_base, _dims, _res, A));

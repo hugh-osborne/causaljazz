@@ -548,6 +548,45 @@ __global__ void PassRatesToQueues(
 
 // Causal Jazz
 
+// Assume num_joint_cells = num_A_cells * num_B_cells
+__global__ void GenerateJointDistributionFrom2Independents(
+    inttype num_joint_cells,
+    fptype* out,
+    inttype num_A_cells,
+    fptype* A,
+    fptype* B)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_joint_cells; i += stride) {
+        inttype A_index = modulo(i, num_A_cells);
+        inttype B_index = int(i / num_A_cells);
+        out[i] = A[A_index] * B[B_index];
+    }
+}
+
+// Assume num_joint_cells = num_A_cells * num_B_cells * num_C_cells
+__global__ void GenerateJointDistributionFrom3Independents(
+    inttype num_joint_cells,
+    fptype* out,
+    inttype num_A_cells,
+    fptype* A,
+    inttype num_B_cells,
+    fptype* B,
+    fptype* C)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_joint_cells; i += stride) {
+        inttype C_index = int(i / (num_A_cells * num_B_cells));
+        inttype B_index = int(modulo(i, num_A_cells * num_B_cells) / num_A_cells);
+        inttype A_index = modulo(i, num_A_cells);
+        out[i] = A[A_index] * B[B_index] * C[C_index];
+    }
+}
+
 // Result is A = dim0, B = dim1
 __global__ void GenerateJointDistributionGivenA(
     inttype num_AB_cells,

@@ -21,6 +21,7 @@ public:
     void setPythonFunction(PyObject* function);
 
     CudaGrid generateCudaGridFromFunction(std::vector<double> _base, std::vector<double> _dims, std::vector<unsigned int> _res, unsigned int output_res);
+    CudaGrid generateCudaGridFromFunction(std::vector<double> _base, std::vector<double> _dims, std::vector<unsigned int> _res, double output_base, double output_size, unsigned int output_res);
 
 };
 

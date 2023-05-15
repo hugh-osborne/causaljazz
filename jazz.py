@@ -7,6 +7,12 @@ from scipy.stats import norm
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.cm as cm
 
+test_1D = False
+test_2D = False
+test_3D = False
+test_Function_to_Conditional = False
+test_deomposition = True
+
 
 def plot3D(points, data):
     flattened_points_x = []
@@ -50,333 +56,337 @@ def plotDist3D(dist, points, res=(100,100,100)):
 
     plot3D(points, dist)
 
-# Try loading then reading 1D distribution
-print("1D")
-x = np.linspace(-2.0, 2.0, 100)
-what = [a * (4.0/100) for a in norm.pdf(x, 0.0, 0.1)]
+if test_1D:
+    # Try loading then reading 1D distribution
+    print("1D")
+    x = np.linspace(-2.0, 2.0, 100)
+    what = [a * (4.0/100) for a in norm.pdf(x, 0.0, 0.1)]
 
-id = cj.newDist([-2.0],[4.0],[100],what)
-looped = cj.readDist(id)
-fig, ax = plt.subplots(1, 1)
+    id = cj.newDist([-2.0],[4.0],[100],what)
+    looped = cj.readDist(id)
+    fig, ax = plt.subplots(1, 1)
 
-ax.set_title('')
-ax.plot(x, what)
-ax.plot(x, looped, linestyle='--')
-fig.tight_layout()
-plt.show()
+    ax.set_title('')
+    ax.plot(x, what)
+    ax.plot(x, looped, linestyle='--')
+    fig.tight_layout()
+    plt.show()
 
-# Try loading then reading 2D distribution
-print("2D")
-x = np.linspace(-2.0, 2.0, 100)
-y = np.linspace(-2.0, 2.0, 100)
+if test_2D:
+    # Try loading then reading 2D distribution
+    print("2D")
+    x = np.linspace(-2.0, 2.0, 100)
+    y = np.linspace(-2.0, 2.0, 100)
 
-xpdf = [a * (4.0/100) for a in norm.pdf(x, 1.0, 0.1)]
-ypdf = [a * (4.0/100) for a in norm.pdf(y, 1.0, 0.1)]
+    xpdf = [a * (4.0/100) for a in norm.pdf(x, 1.0, 0.1)]
+    ypdf = [a * (4.0/100) for a in norm.pdf(y, 1.0, 0.1)]
 
-joint = []
-for x in range(100):
-    col = []
-    for y in range(100):
-        col = col + [xpdf[x]*ypdf[y]]
-    joint = joint + [col]
+    joint = []
+    for x in range(100):
+        col = []
+        for y in range(100):
+            col = col + [xpdf[x]*ypdf[y]]
+        joint = joint + [col]
 
-x2 = np.linspace(-2.0, 2.0, 100)
-y2 = np.linspace(-2.0, 2.0, 100)
-xpdf = [a * (4.0/100) for a in norm.pdf(x2, -1.0, 0.1)]
-ypdf = [a * (4.0/100) for a in norm.pdf(y2, -1.0, 0.1)]
+    x2 = np.linspace(-2.0, 2.0, 100)
+    y2 = np.linspace(-2.0, 2.0, 100)
+    xpdf = [a * (4.0/100) for a in norm.pdf(x2, -1.0, 0.1)]
+    ypdf = [a * (4.0/100) for a in norm.pdf(y2, -1.0, 0.1)]
 
-for x in range(100):
-    for y in range(100):
-        joint[x][y] += xpdf[x]*ypdf[y]
+    for x in range(100):
+        for y in range(100):
+            joint[x][y] += xpdf[x]*ypdf[y]
 
-joint = np.array(joint)
-joint = joint.flatten()
+    joint = np.array(joint)
+    joint = joint.flatten()
 
-id = cj.newDist([-2.0,-2.0],[4.0,4.0],[100,100],[a for a in joint.tolist()])
-looped = cj.readDist(id)
+    id = cj.newDist([-2.0,-2.0],[4.0,4.0],[100,100],[a for a in joint.tolist()])
+    looped = cj.readDist(id)
 
-fig, ax = plt.subplots(1, 1)
+    fig, ax = plt.subplots(1, 1)
 
-joint = joint.reshape((100,100))
-plt.imshow(joint, cmap='hot', interpolation='nearest')
+    joint = joint.reshape((100,100))
+    plt.imshow(joint, cmap='hot', interpolation='nearest')
 
 
-fig, ax = plt.subplots(1, 1)
-looped = np.array(looped)
-looped = looped.reshape((100,100))
-plt.imshow(looped, cmap='hot', interpolation='nearest')
+    fig, ax = plt.subplots(1, 1)
+    looped = np.array(looped)
+    looped = looped.reshape((100,100))
+    plt.imshow(looped, cmap='hot', interpolation='nearest')
 
-plt.show()
+    plt.show()
 
-# Plot the marginals
+    # Plot the marginals
 
-x_marginal = cj.newDist([-2.0],[4.0],[100],[a for a in np.zeros(100)])
-y_marginal = cj.newDist([-2.0],[4.0],[100],[a for a in np.zeros(100)])
+    x_marginal = cj.newDist([-2.0],[4.0],[100],[a for a in np.zeros(100)])
+    y_marginal = cj.newDist([-2.0],[4.0],[100],[a for a in np.zeros(100)])
 
-cj.marginal(id, 0, x_marginal)
-cj.marginal(id, 1, y_marginal)
+    cj.marginal(id, 0, x_marginal)
+    cj.marginal(id, 1, y_marginal)
 
-marginal_x = cj.readDist(x_marginal)
-marginal_y = cj.readDist(y_marginal)
+    marginal_x = cj.readDist(x_marginal)
+    marginal_y = cj.readDist(y_marginal)
 
-fig, ax = plt.subplots(1, 1)
+    fig, ax = plt.subplots(1, 1)
 
-ax.set_title('')
-ax.plot(np.linspace(-2.0, 2.0, 100), marginal_x)
-ax.plot(np.linspace(-2.0, 2.0, 100), marginal_y)
-fig.tight_layout()
-plt.show()
+    ax.set_title('')
+    ax.plot(np.linspace(-2.0, 2.0, 100), marginal_x)
+    ax.plot(np.linspace(-2.0, 2.0, 100), marginal_y)
+    fig.tight_layout()
+    plt.show()
 
-# Calculate and plot the conditionals
+    # Calculate and plot the conditionals
 
-x_given_y = cj.newDist([-2.0,-2.0],[4.0,4.0],[100,100],[a for a in np.zeros(10000)])
-y_given_x = cj.newDist([-2.0,-2.0],[4.0,4.0],[100,100],[a for a in np.zeros(10000)])
+    x_given_y = cj.newDist([-2.0,-2.0],[4.0,4.0],[100,100],[a for a in np.zeros(10000)])
+    y_given_x = cj.newDist([-2.0,-2.0],[4.0,4.0],[100,100],[a for a in np.zeros(10000)])
 
-cj.conditional(id, [0], x_marginal, y_given_x)
-cj.conditional(id, [1], y_marginal, x_given_y)
+    cj.conditional(id, [0], x_marginal, y_given_x)
+    cj.conditional(id, [1], y_marginal, x_given_y)
 
-dist_x_given_y = cj.readDist(x_given_y)
-dist_y_given_x = cj.readDist(y_given_x)
+    dist_x_given_y = cj.readDist(x_given_y)
+    dist_y_given_x = cj.readDist(y_given_x)
 
-fig, ax = plt.subplots(1, 1)
-dist_x_given_y = np.array(dist_x_given_y)
-dist_x_given_y = dist_x_given_y.reshape((100,100))
-plt.imshow(dist_x_given_y, cmap='hot', interpolation='nearest')
+    fig, ax = plt.subplots(1, 1)
+    dist_x_given_y = np.array(dist_x_given_y)
+    dist_x_given_y = dist_x_given_y.reshape((100,100))
+    plt.imshow(dist_x_given_y, cmap='hot', interpolation='nearest')
 
-fig, ax = plt.subplots(1, 1)
-dist_y_given_x = np.array(dist_y_given_x)
-dist_y_given_x = dist_y_given_x.reshape((100,100))
-plt.imshow(dist_y_given_x, cmap='hot', interpolation='nearest')
+    fig, ax = plt.subplots(1, 1)
+    dist_y_given_x = np.array(dist_y_given_x)
+    dist_y_given_x = dist_y_given_x.reshape((100,100))
+    plt.imshow(dist_y_given_x, cmap='hot', interpolation='nearest')
 
-plt.show()
+    plt.show()
 
-# Multiply conditionals by marginals to get the original joint distribution (chain structure)
+    # Multiply conditionals by marginals to get the original joint distribution (chain structure)
 
-joint_from_conditional = cj.newDist([-2.0,-2.0],[4.0,4.0],[100,100],[a for a in np.zeros(10000)])
+    joint_from_conditional = cj.newDist([-2.0,-2.0],[4.0,4.0],[100,100],[a for a in np.zeros(10000)])
 
-cj.chain(x_marginal, 0, y_given_x, joint_from_conditional)
+    cj.chain(x_marginal, 0, y_given_x, joint_from_conditional)
 
-dist_joint_from_conditional = cj.readDist(joint_from_conditional)
+    dist_joint_from_conditional = cj.readDist(joint_from_conditional)
 
-fig, ax = plt.subplots(1, 1)
-dist_joint_from_conditional = np.array(dist_joint_from_conditional)
-dist_joint_from_conditional = dist_joint_from_conditional.reshape((100,100))
-plt.imshow(dist_joint_from_conditional, cmap='hot', interpolation='nearest')
+    fig, ax = plt.subplots(1, 1)
+    dist_joint_from_conditional = np.array(dist_joint_from_conditional)
+    dist_joint_from_conditional = dist_joint_from_conditional.reshape((100,100))
+    plt.imshow(dist_joint_from_conditional, cmap='hot', interpolation='nearest')
 
-plt.show()
+    plt.show()
 
-joint_from_conditional2 = cj.newDist([-2.0,-2.0],[4.0,4.0],[100,100],[a for a in np.zeros(10000)])
+    joint_from_conditional2 = cj.newDist([-2.0,-2.0],[4.0,4.0],[100,100],[a for a in np.zeros(10000)])
 
-cj.chain(y_marginal, 1, x_given_y, joint_from_conditional2)
+    cj.chain(y_marginal, 1, x_given_y, joint_from_conditional2)
 
-dist_joint_from_conditional2 = cj.readDist(joint_from_conditional2)
+    dist_joint_from_conditional2 = cj.readDist(joint_from_conditional2)
 
-fig, ax = plt.subplots(1, 1)
-dist_joint_from_conditional2 = np.array(dist_joint_from_conditional2)
-dist_joint_from_conditional2 = dist_joint_from_conditional2.reshape((100,100))
-plt.imshow(dist_joint_from_conditional2, cmap='hot', interpolation='nearest')
+    fig, ax = plt.subplots(1, 1)
+    dist_joint_from_conditional2 = np.array(dist_joint_from_conditional2)
+    dist_joint_from_conditional2 = dist_joint_from_conditional2.reshape((100,100))
+    plt.imshow(dist_joint_from_conditional2, cmap='hot', interpolation='nearest')
 
-plt.show()
+    plt.show()
 
-# Try loading then reading 3D distribution
+if test_3D:
+    # Try loading then reading 3D distribution
 
-print("3D")
-x = np.linspace(-2.0, 2.0, 100)
-y = np.linspace(-2.0, 2.0, 100)
-z = np.linspace(-2.0, 2.0, 100)
+    print("3D")
+    x = np.linspace(-2.0, 2.0, 100)
+    y = np.linspace(-2.0, 2.0, 100)
+    z = np.linspace(-2.0, 2.0, 100)
 
-xpdf = [a * (4.0/100) for a in norm.pdf(x, 1.0, 0.1)]
-ypdf = [a * (4.0/100) for a in norm.pdf(y, 1.0, 0.1)]
-zpdf = [a * (4.0/100) for a in norm.pdf(z, 1.0, 0.1)]
+    xpdf = [a * (4.0/100) for a in norm.pdf(x, 1.0, 0.1)]
+    ypdf = [a * (4.0/100) for a in norm.pdf(y, 1.0, 0.1)]
+    zpdf = [a * (4.0/100) for a in norm.pdf(z, 1.0, 0.1)]
 
-points = []
-joint = []
-for x in range(100):
-    col = []
-    points_col = []
-    for y in range(100):
-        dep = []
-        points_dep = []
-        for z in range(100):
-            dep = dep + [xpdf[x]*ypdf[y]*zpdf[z]]
-            points_dep = points_dep + [(x,y,z)]
-        col = col + [dep]
-        points_col = points_col + [points_dep]
-    joint = joint + [col]
-    points = points + [points_col]
+    points = []
+    joint = []
+    for x in range(100):
+        col = []
+        points_col = []
+        for y in range(100):
+            dep = []
+            points_dep = []
+            for z in range(100):
+                dep = dep + [xpdf[x]*ypdf[y]*zpdf[z]]
+                points_dep = points_dep + [(x,y,z)]
+            col = col + [dep]
+            points_col = points_col + [points_dep]
+        joint = joint + [col]
+        points = points + [points_col]
 
-x2 = np.linspace(-2.0, 2.0, 100)
-y2 = np.linspace(-2.0, 2.0, 100)
-z2 = np.linspace(-2.0, 2.0, 100)
-xpdf = [a * (4.0/100) for a in norm.pdf(x2, -1.0, 0.1)]
-ypdf = [a * (4.0/100) for a in norm.pdf(y2, -1.0, 0.1)]
-zpdf = [a * (4.0/100) for a in norm.pdf(z2, -1.0, 0.1)]
+    x2 = np.linspace(-2.0, 2.0, 100)
+    y2 = np.linspace(-2.0, 2.0, 100)
+    z2 = np.linspace(-2.0, 2.0, 100)
+    xpdf = [a * (4.0/100) for a in norm.pdf(x2, -1.0, 0.1)]
+    ypdf = [a * (4.0/100) for a in norm.pdf(y2, -1.0, 0.1)]
+    zpdf = [a * (4.0/100) for a in norm.pdf(z2, -1.0, 0.1)]
 
-for x in range(100):
-    for y in range(100):
-        for z in range(100):
-            joint[x][y][z] += xpdf[x]*ypdf[y]*zpdf[z]
+    for x in range(100):
+        for y in range(100):
+            for z in range(100):
+                joint[x][y][z] += xpdf[x]*ypdf[y]*zpdf[z]
             
-joint = np.array(joint)
-joint = joint.reshape((1000000))
+    joint = np.array(joint)
+    joint = joint.reshape((1000000))
 
-id = cj.newDist([-2.0,-2.0,-2.0],[4.0,4.0,4.0],[100,100,100],[a for a in joint])
-looped = cj.readDist(id)
+    id = cj.newDist([-2.0,-2.0,-2.0],[4.0,4.0,4.0],[100,100,100],[a for a in joint])
+    looped = cj.readDist(id)
 
-joint = joint.reshape((100,100,100))
-looped = np.array(looped)
-looped = looped.reshape((100,100,100))
+    joint = joint.reshape((100,100,100))
+    looped = np.array(looped)
+    looped = looped.reshape((100,100,100))
 
 
-plot3D(points, joint)
-plot3D(points, looped)
+    plot3D(points, joint)
+    plot3D(points, looped)
 
-plt.show()
+    plt.show()
 
-# marginals
+    # marginals
 
-xy_marg = cj.newDist([-2.0,-2.0],[4.0,4.0],[100,100],[a for a in np.zeros(10000)])
-yz_marg = cj.newDist([-2.0,-2.0],[4.0,4.0],[100,100],[a for a in np.zeros(10000)])
-xz_marg = cj.newDist([-2.0,-2.0],[4.0,4.0],[100,100],[a for a in np.zeros(10000)])
+    xy_marg = cj.newDist([-2.0,-2.0],[4.0,4.0],[100,100],[a for a in np.zeros(10000)])
+    yz_marg = cj.newDist([-2.0,-2.0],[4.0,4.0],[100,100],[a for a in np.zeros(10000)])
+    xz_marg = cj.newDist([-2.0,-2.0],[4.0,4.0],[100,100],[a for a in np.zeros(10000)])
 
-cj.marginal(id, 2, xy_marg)
-cj.marginal(id, 0, yz_marg)
-cj.marginal(id, 1, xz_marg)
+    cj.marginal(id, 2, xy_marg)
+    cj.marginal(id, 0, yz_marg)
+    cj.marginal(id, 1, xz_marg)
 
-dist_xy_marg = cj.readDist(xy_marg)
-dist_yz_marg = cj.readDist(yz_marg)
-dist_xz_marg = cj.readDist(xz_marg)
+    dist_xy_marg = cj.readDist(xy_marg)
+    dist_yz_marg = cj.readDist(yz_marg)
+    dist_xz_marg = cj.readDist(xz_marg)
 
-fig, ax = plt.subplots(1, 1)
-dist_xy_marg = np.array(dist_xy_marg)
-dist_xy_marg = dist_xy_marg.reshape((100,100))
-plt.imshow(dist_xy_marg, cmap='hot', interpolation='nearest')
+    fig, ax = plt.subplots(1, 1)
+    dist_xy_marg = np.array(dist_xy_marg)
+    dist_xy_marg = dist_xy_marg.reshape((100,100))
+    plt.imshow(dist_xy_marg, cmap='hot', interpolation='nearest')
 
-fig, ax = plt.subplots(1, 1)
-dist_yz_marg = np.array(dist_yz_marg)
-dist_yz_marg = dist_yz_marg.reshape((100,100))
-plt.imshow(dist_yz_marg, cmap='hot', interpolation='nearest')
+    fig, ax = plt.subplots(1, 1)
+    dist_yz_marg = np.array(dist_yz_marg)
+    dist_yz_marg = dist_yz_marg.reshape((100,100))
+    plt.imshow(dist_yz_marg, cmap='hot', interpolation='nearest')
 
-fig, ax = plt.subplots(1, 1)
-dist_xz_marg = np.array(dist_xz_marg)
-dist_xz_marg = dist_xz_marg.reshape((100,100))
-plt.imshow(dist_xz_marg, cmap='hot', interpolation='nearest')
+    fig, ax = plt.subplots(1, 1)
+    dist_xz_marg = np.array(dist_xz_marg)
+    dist_xz_marg = dist_xz_marg.reshape((100,100))
+    plt.imshow(dist_xz_marg, cmap='hot', interpolation='nearest')
 
-plt.show()
+    plt.show()
 
-# Conditionals
+    # Conditionals
 
-x_given_yz = cj.newDist([-2.0,-2.0,-2.0],[4.0,4.0,4.0],[100,100,100],[a for a in np.zeros(1000000)])
-y_given_xz = cj.newDist([-2.0,-2.0,-2.0],[4.0,4.0,4.0],[100,100,100],[a for a in np.zeros(1000000)])
-z_given_xy = cj.newDist([-2.0,-2.0,-2.0],[4.0,4.0,4.0],[100,100,100],[a for a in np.zeros(1000000)])
+    x_given_yz = cj.newDist([-2.0,-2.0,-2.0],[4.0,4.0,4.0],[100,100,100],[a for a in np.zeros(1000000)])
+    y_given_xz = cj.newDist([-2.0,-2.0,-2.0],[4.0,4.0,4.0],[100,100,100],[a for a in np.zeros(1000000)])
+    z_given_xy = cj.newDist([-2.0,-2.0,-2.0],[4.0,4.0,4.0],[100,100,100],[a for a in np.zeros(1000000)])
 
-cj.conditional(id, [1,2], yz_marg, x_given_yz)
-cj.conditional(id, [0,2], xz_marg, y_given_xz)
-cj.conditional(id, [0,1], xy_marg, z_given_xy)
+    cj.conditional(id, [1,2], yz_marg, x_given_yz)
+    cj.conditional(id, [0,2], xz_marg, y_given_xz)
+    cj.conditional(id, [0,1], xy_marg, z_given_xy)
 
-dist_x_given_yz = cj.readDist(x_given_yz)
-dist_y_given_xz = cj.readDist(y_given_xz)
-dist_z_given_xy = cj.readDist(z_given_xy)
+    dist_x_given_yz = cj.readDist(x_given_yz)
+    dist_y_given_xz = cj.readDist(y_given_xz)
+    dist_z_given_xy = cj.readDist(z_given_xy)
 
-dist_x_given_yz = np.array(dist_x_given_yz)
-dist_x_given_yz = dist_x_given_yz.reshape((100,100,100))
+    dist_x_given_yz = np.array(dist_x_given_yz)
+    dist_x_given_yz = dist_x_given_yz.reshape((100,100,100))
 
-dist_y_given_xz = np.array(dist_y_given_xz)
-dist_y_given_xz = dist_y_given_xz.reshape((100,100,100))
+    dist_y_given_xz = np.array(dist_y_given_xz)
+    dist_y_given_xz = dist_y_given_xz.reshape((100,100,100))
 
-dist_z_given_xy = np.array(dist_z_given_xy)
-dist_z_given_xy = dist_z_given_xy.reshape((100,100,100))
+    dist_z_given_xy = np.array(dist_z_given_xy)
+    dist_z_given_xy = dist_z_given_xy.reshape((100,100,100))
 
-# Takes forever to plot so commenting out
-#plot3D(points, dist_x_given_yz)
-#plt.show()
-#plot3D(points, dist_y_given_xz)
-#plt.show()
-#plot3D(points, dist_z_given_xy)
-#plt.show()
+    # Takes forever to plot so commenting out
+    #plot3D(points, dist_x_given_yz)
+    #plt.show()
+    #plot3D(points, dist_y_given_xz)
+    #plt.show()
+    #plot3D(points, dist_z_given_xy)
+    #plt.show()
 
-# Multiply two conditionals and a marginal to get a 3D joint distribution (fork structure)
+    # Multiply two conditionals and a marginal to get a 3D joint distribution (fork structure)
 
-# First, does the marginal x from xy and xz match? This needs a better test - currently the distribution is too symmetric to tell
+    # First, does the marginal x from xy and xz match? This needs a better test - currently the distribution is too symmetric to tell
 
-x_from_xy_marg = cj.newDist([-2.0],[4.0],[100],[a for a in np.zeros(100)])
-x_from_xz_marg = cj.newDist([-2.0],[4.0],[100],[a for a in np.zeros(100)])
+    x_from_xy_marg = cj.newDist([-2.0],[4.0],[100],[a for a in np.zeros(100)])
+    x_from_xz_marg = cj.newDist([-2.0],[4.0],[100],[a for a in np.zeros(100)])
 
-cj.marginal(xy_marg, 1, x_from_xy_marg)
-cj.marginal(xz_marg, 1, x_from_xz_marg)
+    cj.marginal(xy_marg, 1, x_from_xy_marg)
+    cj.marginal(xz_marg, 1, x_from_xz_marg)
 
-dist_x_from_xy_marg = cj.readDist(x_from_xy_marg)
-dist_x_from_xz_marg = cj.readDist(x_from_xz_marg)
+    dist_x_from_xy_marg = cj.readDist(x_from_xy_marg)
+    dist_x_from_xz_marg = cj.readDist(x_from_xz_marg)
 
-fig, ax = plt.subplots(1, 1)
-ax.set_title('')
-ax.plot(np.linspace(-2.0, 2.0, 100), dist_x_from_xy_marg)
-ax.plot(np.linspace(-2.0, 2.0, 100), dist_x_from_xz_marg, linestyle='--')
-fig.tight_layout()
-plt.show()
+    fig, ax = plt.subplots(1, 1)
+    ax.set_title('')
+    ax.plot(np.linspace(-2.0, 2.0, 100), dist_x_from_xy_marg)
+    ax.plot(np.linspace(-2.0, 2.0, 100), dist_x_from_xz_marg, linestyle='--')
+    fig.tight_layout()
+    plt.show()
 
-# Generate the original
+    # Generate the original
 
-y_given_x = cj.newDist([-2.0,-2.0],[4.0,4.0],[100,100],[a for a in np.zeros(10000)])
-z_given_x = cj.newDist([-2.0,-2.0],[4.0,4.0],[100,100],[a for a in np.zeros(10000)])
-joint_from_fork = cj.newDist([-2.0,-2.0,-2.0],[4.0,4.0,4.0],[100,100,100],[a for a in np.zeros(1000000)])
+    y_given_x = cj.newDist([-2.0,-2.0],[4.0,4.0],[100,100],[a for a in np.zeros(10000)])
+    z_given_x = cj.newDist([-2.0,-2.0],[4.0,4.0],[100,100],[a for a in np.zeros(10000)])
+    joint_from_fork = cj.newDist([-2.0,-2.0,-2.0],[4.0,4.0,4.0],[100,100,100],[a for a in np.zeros(1000000)])
 
-cj.conditional(xy_marg, [0], x_from_xy_marg, y_given_x)
-cj.conditional(xz_marg, [0], x_from_xz_marg, z_given_x)
-cj.fork(x_from_xy_marg, 0, y_given_x, 0, z_given_x, joint_from_fork)
+    cj.conditional(xy_marg, [0], x_from_xy_marg, y_given_x)
+    cj.conditional(xz_marg, [0], x_from_xz_marg, z_given_x)
+    cj.fork(x_from_xy_marg, 0, y_given_x, 0, z_given_x, joint_from_fork)
 
-dist_joint_from_fork = cj.readDist(joint_from_fork)
-dist_joint_from_fork = np.array(dist_joint_from_fork)
-dist_joint_from_fork = dist_joint_from_fork.reshape((100,100,100))
+    dist_joint_from_fork = cj.readDist(joint_from_fork)
+    dist_joint_from_fork = np.array(dist_joint_from_fork)
+    dist_joint_from_fork = dist_joint_from_fork.reshape((100,100,100))
 
-plot3D(points, dist_joint_from_fork)
-plt.show()
+    plot3D(points, dist_joint_from_fork)
+    plt.show()
 
-# TODO: Add tests for other conditionals where they are transposed
+    # TODO: Add tests for other conditionals where they are transposed
 
-# Multiply a conditional by a marginal to get the original joint distribution (collider structure)
+    # Multiply a conditional by a marginal to get the original joint distribution (collider structure)
 
-joint_from_collider = cj.newDist([-2.0,-2.0,-2.0],[4.0,4.0,4.0],[100,100,100],[a for a in np.zeros(1000000)])
+    joint_from_collider = cj.newDist([-2.0,-2.0,-2.0],[4.0,4.0,4.0],[100,100,100],[a for a in np.zeros(1000000)])
 
-cj.collider(xy_marg, [0,1], z_given_xy, joint_from_collider)
+    cj.collider(xy_marg, [0,1], z_given_xy, joint_from_collider)
 
-dist_joint_from_collider = cj.readDist(joint_from_collider)
-dist_joint_from_collider = np.array(dist_joint_from_collider)
-dist_joint_from_collider = dist_joint_from_collider.reshape((100,100,100))
+    dist_joint_from_collider = cj.readDist(joint_from_collider)
+    dist_joint_from_collider = np.array(dist_joint_from_collider)
+    dist_joint_from_collider = dist_joint_from_collider.reshape((100,100,100))
 
-plot3D(points, dist_joint_from_collider)
-plt.show()
+    plot3D(points, dist_joint_from_collider)
+    plt.show()
 
-# Generate a 2D conditional from a function
+if test_Function_to_Conditional:
+    # Generate a 2D conditional from a function
 
-def testFunc(y):
-    A = y[0]
-    return 5*A
+    def testFunc(y):
+        A = y[0]
+        return 5*A
 
-testFunc_conditional = cj.function([-2.0],[4.0],[100],testFunc,100)
-dist_testFunc = cj.readDist(testFunc_conditional)
-dist_testFunc = np.array(dist_testFunc)
-dist_testFunc = dist_testFunc.reshape((100,100))
+    testFunc_conditional = cj.function([-2.0],[4.0],[100],testFunc,100)
+    dist_testFunc = cj.readDist(testFunc_conditional)
+    dist_testFunc = np.array(dist_testFunc)
+    dist_testFunc = dist_testFunc.reshape((100,100))
 
-fig, ax = plt.subplots(1, 1)
-plt.imshow(dist_testFunc, cmap='hot', interpolation='nearest')
+    fig, ax = plt.subplots(1, 1)
+    plt.imshow(dist_testFunc, cmap='hot', interpolation='nearest')
 
-plt.show()
+    plt.show()
 
-# Generate a 3D conditional from a function
+    # Generate a 3D conditional from a function
 
-def testFunc2(y):
-    A = y[0]
-    B = y[1]
-    return A+B
+    def testFunc2(y):
+        A = y[0]
+        B = y[1]
+        return A+B
 
-testFunc2_conditional = cj.function([-2.0,-2.0],[4.0,4.0],[100,100],testFunc,100)
-dist_testFunc2 = cj.readDist(testFunc2_conditional)
-dist_testFunc2 = np.array(dist_testFunc2)
-dist_testFunc2 = dist_testFunc2.reshape((100,100,100))
+    testFunc2_conditional = cj.function([-2.0,-2.0],[4.0,4.0],[100,100],testFunc,100)
+    dist_testFunc2 = cj.readDist(testFunc2_conditional)
+    dist_testFunc2 = np.array(dist_testFunc2)
+    dist_testFunc2 = dist_testFunc2.reshape((100,100,100))
 
-plot3D(points, dist_testFunc2)
-plt.show()
+    plot3D(points, dist_testFunc2)
+    plt.show()
 
 # OK. Let's try a 3D conductance
 
@@ -404,7 +414,7 @@ def cond(y):
 def w_prime(y):
     w = y[0]
     tau_e = 2.728
-    dt = 1
+    dt = 0.1
 
     w_prime = -(w) / tau_e
     return w + dt*w_prime
@@ -412,7 +422,7 @@ def w_prime(y):
 def u_prime(y):
     u = y[0]
     tau_i = 10.49
-    dt = 1
+    dt = 0.1
 
     u_prime = -(u) / tau_i
     return u + dt*u_prime
@@ -446,7 +456,7 @@ def v_prime(y):
     E_l = -70.6
     C = 281
     g_l = 0.03
-    dt = 1
+    dt = 0.1
 
     v_prime = (-g_l*(v - E_l) + vw_vu) / C
 
@@ -467,8 +477,8 @@ v0 = cj.newDist([-80.0],[40.0],[100],[a for a in vpdf])
 w0 = cj.newDist([-1.0],[26.0],[100],[a for a in wpdf])
 u0 = cj.newDist([-5.0],[55.0],[100],[a for a in updf])
 
-c_w_prime = cj.function([-1.0],[26.0],[100], w_prime, 100)
-c_u_prime = cj.function([-5.0],[55.0],[100], u_prime, 100)
+c_w_prime = cj.boundedFunction([-1.0],[26.0],[100], w_prime, -1.0, 26.0, 100)
+c_u_prime = cj.boundedFunction([-5.0],[55.0],[100], u_prime, -5.0, 55.0, 100)
 c_vw = cj.function([-80.0,-1.0],[40.0,26.0],[100,100], vw, 100)
 c_vu = cj.function([-80.0,-5.0],[40.0,55.0],[100,100], vu, 100)
 
@@ -485,37 +495,99 @@ c_vwvu = cj.function([cj.base(c_vw)[2],cj.base(c_vu)[2]],[cj.size(c_vw)[2],cj.si
 #plotDist3D(c_vwvu, points)
 #plt.show()
 
-c_v_prime = cj.function([-80.0,cj.base(c_vwvu)[2]],[40.0,cj.size(c_vwvu)[2]],[100,100],v_prime, 100)
+c_v_prime = cj.boundedFunction([-80.0,cj.base(c_vwvu)[2]],[40.0,cj.size(c_vwvu)[2]],[100,100],v_prime, -80.0, 40.0, 100)
 
 #plotDist3D(c_v_prime, points)
 #plt.show()
 
 # w1 and u1 are easy to calculate - they're just chains
-# TODO: When applying c_w_prime, the resulting distribution w' is likely a different size to the input w
-# but we want to maintain a stable size and truncate anything that goes beyond the boundaries
-# so we need a function to "resize" a distribution (or force an output size like we did previously)
 
 w0w1 = cj.newDist([-1.0,-1.0],[26.0,26.0],[100,100],[a for a in np.zeros(10000)])
 u0u1 = cj.newDist([-5.0,-5.0],[55.0,55.0],[100,100],[a for a in np.zeros(10000)])
 
-cj.chain(w0, 1, c_w_prime, w0w1)
-cj.chain(u0, 1, c_u_prime, u0u1)
+cj.chain(w0, 0, c_w_prime, w0w1)
+cj.chain(u0, 0, c_u_prime, u0u1)
 
 w1 = cj.newDist([-1.0],[26.0],[100],[a for a in np.zeros(100)])
 u1 = cj.newDist([-5.0],[55.0],[100],[a for a in np.zeros(100)])
 
-cj.marginal(w0w1, 1, w1)
-cj.marginal(u0u1, 1, u1)
+cj.marginal(w0w1, 0, w1)
+cj.marginal(u0u1, 0, u1)
 
 dist_w0 = cj.readDist(w0)
 dist_w1 = cj.readDist(w1)
 
-fig, ax = plt.subplots(1, 1)
-ax.set_title('')
-ax.plot(w, dist_w0)
-ax.plot(w, dist_w1, linestyle="--")
-fig.tight_layout()
-plt.show()
+#fig, ax = plt.subplots(1, 1)
+#ax.set_title('')
+#ax.plot(w, dist_w0)
+#ax.plot(w, dist_w1, linestyle="--")
+#fig.tight_layout()
+#plt.show()
+
+# Next calculate the distributions from the conditionals wv and uv. v0 and w0 -> vw0 is easy as v0 and w0 are independent. Not so much for v1 and w1 -> vw1.
+
+joint_v_w = cj.newDistFrom2(v0, w0)
+joint_v_u = cj.newDistFrom2(v0, u0)
+
+joint_v_w_vw = cj.newDist([-80.0,-1.0,cj.base(c_vw)[2]],[40.0,26.0,cj.size(c_vw)[2]],[100,100,100], [a for a in np.zeros(1000000)])
+joint_v_u_vu = cj.newDist([-80.0,-5.0,cj.base(c_vu)[2]],[40.0,55.0,cj.size(c_vu)[2]],[100,100,100], [a for a in np.zeros(1000000)])
+
+cj.collider(joint_v_w, [0,1], c_vw, joint_v_w_vw)
+cj.collider(joint_v_u, [0,1], c_vu, joint_v_u_vu)
+
+# To calculate vwvu, we must find the joint probability vw and vu which are dependent (via v)
+
+# First find, the v_vw and v_vu marginals of the two joint probabilities we just calculated
+
+joint_v_vw = cj.newDist([-80.0, cj.base(c_vw)[2]], [40.0, cj.size(c_vw)[2]], [100,100], [a for a in np.zeros(10000)])
+joint_v_vu = cj.newDist([-80.0, cj.base(c_vu)[2]], [40.0, cj.size(c_vu)[2]], [100,100], [a for a in np.zeros(10000)])
+
+cj.marginal(joint_v_w_vw, [0,2], joint_v_vw)
+cj.marginal(joint_v_u_vu, [0,2], joint_v_vu)
+
+# Now calculate the conditionals wv|v and uv|v
+
+vw_given_v = cj.newDist([-80.0, cj.base(c_vw)[2]], [40.0, cj.size(c_vw)[2]], [100,100], [a for a in np.zeros(10000)])
+vu_given_v = cj.newDist([-80.0, cj.base(c_vu)[2]], [40.0, cj.size(c_vu)[2]], [100,100], [a for a in np.zeros(10000)])
+
+cj.conditional(joint_v_vw, [0], v0, vw_given_v)
+cj.conditional(joint_v_vu, [0], v0, vu_given_v)
+
+# Now calculate the joint probability wv uv
+
+joint_v_vw_vu = cj.newDist([-80.0,cj.base(c_vw)[2],cj.base(c_vu)[2]],[40.0,cj.size(c_vw)[2],cj.size(c_vu)[2]],[100,100,100], [a for a in np.zeros(1000000)])
+
+cj.fork(v0, 0, vw_given_v, 0, vu_given_v, joint_v_vw_vu)
+
+joint_vw_vu = cj.newDist([cj.base(c_vw)[2],cj.base(c_vu)[2]],[cj.size(c_vw)[2],cj.size(c_vu)[2]],[100,100], [a for a in np.zeros(10000)])
+
+cj.marginal(joint_v_vw_vu, [1,2], joint_vw_vu)
+
+# Now vwvu can be calculated from the joint distribution and function conditional
+
+joint_vw_vu_vwvu = cj.newDist([cj.base(c_vw)[2],cj.base(c_vu)[2],cj.base(c_vwvu)[2]],[cj.size(c_vw)[2],cj.size(c_vwvu)[2]],[100,100,100], [a for a in np.zeros(1000000)])
+
+cj.collider(joint_vw_vu, [0,1], c_vwvu, joint_vw_vu_vwvu)
+
+# Finally, we need to calculate v'. However, as before, vwvu and v0 are not independent. So we start the long road to calculating the joint probability
+# We have a fork followed by a collider creating a diamond shape
+
+#            v0                 
+#          /    \             
+#         /      \            
+#       vw        vu                  
+#        \       /              
+#         \     /               
+#           vwvu                
+#
+# Question: If we use the chain v0 -> vw -> vwvu to calculate the joint distribution (v0,vwvu), will the result be the same if we were to instead
+# use the chain v0 -> vu -> vwvu. We want to do this to avoid having to calculate the full 4D joint distribution (v0, vw, vu, vwvu).
+
+
+
+
+
+# From v0 to v1 requires combining 
 
 v1 = cj.newDist([-80.0],[40.0],[100],[a for a in np.zeros(100)])
 

@@ -215,6 +215,22 @@ __global__ void PassRatesToQueues(
 
 // New Causal Jazz
 
+__global__ void GenerateJointDistributionFrom2Independents(
+    inttype num_joint_cells,
+    fptype* out,
+    inttype num_A_cells,
+    fptype* A,
+    fptype* B);
+
+__global__ void GenerateJointDistributionFrom3Independents(
+    inttype num_joint_cells,
+    fptype* out,
+    inttype num_A_cells,
+    fptype* A,
+    inttype num_B_cells,
+    fptype* B,
+    fptype* C);
+
 __global__ void GenerateJointDistributionGivenA(
     inttype num_AB_cells,
     fptype* out,
