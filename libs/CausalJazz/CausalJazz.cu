@@ -14,7 +14,8 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 }
 
 CausalJazz::CausalJazz()
-: block_size(BLOCK_SIZE) {
+: block_size(BLOCK_SIZE),
+  mass_sum_value(0){
 
 }
 
@@ -93,20 +94,86 @@ unsigned int CausalJazz::addDistribution(std::vector<double> _base, std::vector<
 void CausalJazz::buildJointDistributionFromChain(CudaGrid* A, unsigned int givendim, CudaGrid* BgivenA, unsigned int out) {
 	unsigned int numBlocks = (grids[out].getTotalNumCells() + block_size - 1) / block_size;
 
-	if (givendim == 0)
-		GenerateJointDistributionGivenA << <numBlocks, block_size >> > (
+	if (A->getNumDimensions() == 1) {
+		if (givendim == 0)
+			GenerateJointDistributionGivenA << <numBlocks, block_size >> > (
+				grids[out].getTotalNumCells(),
+				grids[out].getProbabilityMass(),
+				A->getTotalNumCells(),
+				A->getProbabilityMass(),
+				BgivenA->getProbabilityMass());
+		else if (givendim == 1)
+			GenerateJointDistributionGivenB << <numBlocks, block_size >> > (
+				grids[out].getTotalNumCells(),
+				grids[out].getProbabilityMass(),
+				A->getTotalNumCells(),
+				A->getProbabilityMass(),
+				BgivenA->getProbabilityMass());
+	}
+	else if (A->getNumDimensions() == 2) {
+		if (givendim == 0)
+			GenerateJointDistributionFromABCGivenA << <numBlocks, block_size >> > (
+				grids[out].getTotalNumCells(),
+				grids[out].getProbabilityMass(),
+				A->getRes()[0],
+				A->getRes()[1],
+				A->getProbabilityMass(),
+				BgivenA->getProbabilityMass());
+		else if (givendim == 1)
+			GenerateJointDistributionFromABCGivenB << <numBlocks, block_size >> > (
+				grids[out].getTotalNumCells(),
+				grids[out].getProbabilityMass(),
+				A->getRes()[0],
+				A->getRes()[1],
+				A->getProbabilityMass(),
+				BgivenA->getProbabilityMass());
+	}
+	
+}
+
+void CausalJazz::buildJointDistributionFromChain(CudaGrid* A, unsigned int givendimBA, CudaGrid* BgivenA, unsigned int givendimCB, CudaGrid* CgivenB, unsigned int out) {
+	unsigned int numBlocks = (grids[out].getTotalNumCells() + block_size - 1) / block_size;
+
+	if (givendimBA == 0 && givendimCB == 0) {
+		GenerateJointDistributionFromABGivenACGivenB << <numBlocks, block_size >> > (
 			grids[out].getTotalNumCells(),
 			grids[out].getProbabilityMass(),
-			A->getTotalNumCells(),
+			grids[out].getRes()[0],
+			grids[out].getRes()[1],
 			A->getProbabilityMass(),
-			BgivenA->getProbabilityMass());
-	else if (givendim == 1)
-		GenerateJointDistributionGivenB << <numBlocks, block_size >> > (
+			BgivenA->getProbabilityMass(),
+			CgivenB->getProbabilityMass());
+	} else if (givendimBA == 1 && givendimCB == 0) {
+		GenerateJointDistributionFromArBGivenACGivenB << <numBlocks, block_size >> > (
 			grids[out].getTotalNumCells(),
 			grids[out].getProbabilityMass(),
-			A->getTotalNumCells(),
+			grids[out].getRes()[0],
+			grids[out].getRes()[1],
 			A->getProbabilityMass(),
-			BgivenA->getProbabilityMass());
+			BgivenA->getProbabilityMass(),
+			CgivenB->getProbabilityMass());
+	} else if (givendimBA == 0 && givendimCB == 1) {
+		GenerateJointDistributionFromABGivenArCGivenB << <numBlocks, block_size >> > (
+			grids[out].getTotalNumCells(),
+			grids[out].getProbabilityMass(),
+			grids[out].getRes()[0],
+			grids[out].getRes()[1],
+			grids[out].getRes()[2],
+			A->getProbabilityMass(),
+			BgivenA->getProbabilityMass(),
+			CgivenB->getProbabilityMass());
+	} else if (givendimBA == 1 && givendimCB == 1) {
+		GenerateJointDistributionFromArBGivenArCGivenB << <numBlocks, block_size >> > (
+			grids[out].getTotalNumCells(),
+			grids[out].getProbabilityMass(),
+			grids[out].getRes()[0],
+			grids[out].getRes()[1],
+			grids[out].getRes()[2],
+			A->getProbabilityMass(),
+			BgivenA->getProbabilityMass(),
+			CgivenB->getProbabilityMass());
+	}
+
 }
 
 void CausalJazz::buildJointDistributionFromFork(CudaGrid* A, unsigned int givendimBA, CudaGrid* BgivenA, unsigned int givendimCA, CudaGrid* CgivenA, unsigned int out) {
@@ -324,4 +391,29 @@ void CausalJazz::reduceJointDistributionToConditional(CudaGrid* A, std::vector<u
 				A->getProbabilityMass());
 		}
 	}
+}
+
+void CausalJazz::transferMass(unsigned int in, unsigned int out) {
+	unsigned int numBlocks = (grids[out].getTotalNumCells() + block_size - 1) / block_size;
+	transferMassBetweenGrids << <numBlocks, block_size >> > (
+		grids[out].getTotalNumCells(),
+		grids[in].getProbabilityMass(),
+		grids[out].getProbabilityMass());
+}
+
+void CausalJazz::rescale(unsigned int grid) {
+	if (!mass_sum_value)
+		checkCudaErrors(cudaMalloc((fptype**)&mass_sum_value, sizeof(fptype)));
+
+	sumMass << <1, 1 >> > (
+		grids[grid].getTotalNumCells(),
+		grids[grid].getProbabilityMass(),
+		mass_sum_value);
+
+	unsigned int numBlocks = (grids[grid].getTotalNumCells() + block_size - 1) / block_size;
+
+	rescaleMass << <numBlocks, block_size >> > (
+		grids[grid].getTotalNumCells(),
+		mass_sum_value,
+		grids[grid].getProbabilityMass());
 }

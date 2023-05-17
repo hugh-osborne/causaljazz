@@ -245,6 +245,60 @@ __global__ void GenerateJointDistributionGivenB(
     fptype* B,
     fptype* AgivenB);
 
+__global__ void GenerateJointDistributionFromABCGivenA(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype num_A_cells,
+    inttype num_B_cells,
+    fptype* AB,
+    fptype* CgivenA);
+
+__global__ void GenerateJointDistributionFromABCGivenB(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype num_A_cells,
+    inttype num_B_cells,
+    fptype* AB,
+    fptype* CgivenB);
+
+__global__ void GenerateJointDistributionFromABGivenACGivenB(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype num_A_cells,
+    inttype num_B_cells,
+    fptype* A,
+    fptype* BgivenA,
+    fptype* CgivenB);
+
+__global__ void GenerateJointDistributionFromArBGivenACGivenB(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype num_A_cells,
+    inttype num_B_cells,
+    fptype* A,
+    fptype* rBgivenA,
+    fptype* CgivenB);
+
+__global__ void GenerateJointDistributionFromABGivenArCGivenB(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype num_A_cells,
+    inttype num_B_cells,
+    inttype num_C_cells,
+    fptype* A,
+    fptype* BgivenA,
+    fptype* rCgivenB);
+
+__global__ void GenerateJointDistributionFromArBGivenArCGivenB(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype num_A_cells,
+    inttype num_B_cells,
+    inttype num_C_cells,
+    fptype* A,
+    fptype* rBgivenA,
+    fptype* rCgivenB);
+
 __global__ void GenerateJointDistributionFromFork(
     inttype num_ABC_cells,
     fptype* out,
@@ -410,5 +464,20 @@ __global__ void GenerateBGivenA(
     inttype B_res,
     fptype* A,
     fptype* AB);
+
+__global__ void transferMassBetweenGrids(
+    inttype num_cells,
+    fptype* in,
+    fptype* out);
+
+__global__ void sumMass(
+    inttype num_cells,
+    fptype* mass,
+    fptype* sum);
+
+__global__ void rescaleMass(
+    inttype num_cells,
+    fptype* sum,
+    fptype* out);
 
 #endif
