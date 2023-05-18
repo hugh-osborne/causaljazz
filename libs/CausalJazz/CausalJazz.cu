@@ -256,7 +256,6 @@ void CausalJazz::buildJointDistributionFromCollider(CudaGrid* AB, std::vector<un
 			AB->getProbabilityMass(),
 			CgivenAB->getProbabilityMass());
 	}
-	
 }
 
 void CausalJazz::buildMarginalDistribution(CudaGrid* A, unsigned int droppedDim, unsigned int out) {
@@ -416,4 +415,24 @@ void CausalJazz::rescale(unsigned int grid) {
 		grids[grid].getTotalNumCells(),
 		mass_sum_value,
 		grids[grid].getProbabilityMass());
+}
+
+void CausalJazz::update(unsigned int grid_id, std::vector<double> A) {
+	grids[grid_id].updateMass(A);
+}
+
+double CausalJazz::totalMass(unsigned int grid_id) {
+	if (!mass_sum_value)
+		checkCudaErrors(cudaMalloc((fptype**)&mass_sum_value, sizeof(fptype)));
+
+	sumMass << <1, 1 >> > (
+		grids[grid_id].getTotalNumCells(),
+		grids[grid_id].getProbabilityMass(),
+		mass_sum_value);
+
+	fptype mass = 0.0;
+
+	checkCudaErrors(cudaMemcpy(&mass, mass_sum_value, sizeof(fptype), cudaMemcpyDeviceToHost));
+
+	return (double)mass;
 }

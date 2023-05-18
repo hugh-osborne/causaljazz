@@ -522,7 +522,7 @@ PyObject* fastmass_connect(PyObject* self, PyObject* args)
     }
 }
 
-PyObject* fastmass_update(PyObject* self, PyObject* args)
+PyObject* fastmass_updateconn(PyObject* self, PyObject* args)
 {
     /* Get arbitrary number of strings from Py_Tuple */
     Py_ssize_t i = 0;
@@ -2024,6 +2024,92 @@ PyObject* fastmass_rescale(PyObject* self, PyObject* args)
     }
 }
 
+PyObject* fastmass_update(PyObject* self, PyObject* args)
+{
+    try {
+        /* Get arbitrary number of strings from Py_Tuple */
+        Py_ssize_t i = 0;
+        PyObject* temp_p, * temp_p2;
+
+        unsigned int id;
+        std::vector<double> mass;
+
+        // in dist id
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            id = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        // probability mass
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        int pr_length = PyObject_Length(temp_p);
+        if (pr_length < 0)
+            return NULL;
+
+        mass = std::vector<double>(pr_length);
+
+        for (int index = 0; index < pr_length; index++) {
+            PyObject* item;
+            item = PyList_GetItem(temp_p, index);
+            if (!PyFloat_Check(item))
+                mass[index] = 0.0;
+            mass[index] = PyFloat_AsDouble(item);
+        }
+
+        jazz->update(id, mass);
+
+        Py_RETURN_NONE;
+    }
+    catch (const std::exception& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    catch (...) {
+        PyErr_SetString(PyExc_RuntimeError, "Unhandled Exception during generateNdGrid()");
+        return NULL;
+    }
+}
+
+PyObject* fastmass_total(PyObject* self, PyObject* args)
+{
+    try {
+        /* Get arbitrary number of strings from Py_Tuple */
+        Py_ssize_t i = 0;
+        PyObject* temp_p, * temp_p2;
+
+        unsigned int id;
+
+        // in dist id
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            id = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        double m = jazz->totalMass(id);
+
+        return Py_BuildValue("f", m);
+    }
+    catch (const std::exception& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    catch (...) {
+        PyErr_SetString(PyExc_RuntimeError, "Unhandled Exception during generateNdGrid()");
+        return NULL;
+    }
+}
+
 /*
  * List of functions to add to WinMiindPython in exec_WinMiindPython().
  */
@@ -2036,7 +2122,7 @@ static PyMethodDef pycausaljazz_functions[] = {
     {"shutdown", (PyCFunction)fastmass_shutdown, METH_VARARGS, "Shutdown a simulation."},
     {"poisson", (PyCFunction)fastmass_poisson, METH_VARARGS, "Set up a poisson spike train input to the given neurons with given jump."},
     {"connect", (PyCFunction)fastmass_connect, METH_VARARGS, "Connect Two populations."},
-    {"updateConnection", (PyCFunction)fastmass_update, METH_VARARGS, "Update connection between two populations."},
+    {"updateConnection", (PyCFunction)fastmass_updateconn, METH_VARARGS, "Update connection between two populations."},
     {"postRate", (PyCFunction)fastmass_post, METH_VARARGS, "Post firing rate to poisson input."},
     {"readRates", (PyCFunction)fastmass_readrates, METH_VARARGS, "Read firing rates of each populations."},
     {"readMass", (PyCFunction)fastmass_readmass, METH_VARARGS, "Read mass of a given population."},
@@ -2058,6 +2144,8 @@ static PyMethodDef pycausaljazz_functions[] = {
     {"res", (PyCFunction)fastmass_res, METH_VARARGS, "Jazz : Return the res values for a given grid id."},
     {"transfer", (PyCFunction)fastmass_transfer, METH_VARARGS, "Jazz : Transfer mass from one grid to another."},
     {"rescale", (PyCFunction)fastmass_rescale, METH_VARARGS, "Jazz : Rescale mass in a grid to sum to 1.0."},
+    {"update", (PyCFunction)fastmass_update, METH_VARARGS, "Jazz : Update the mass in a grid."},
+    {"total", (PyCFunction)fastmass_total, METH_VARARGS, "Jazz : Check the mass total in this grid."},
     { NULL, NULL, 0, NULL } /* marks end of array */
 };
 

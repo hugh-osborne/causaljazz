@@ -105,16 +105,16 @@ CudaGrid CudaGridGenerator::generateCudaGridFromFunction(std::vector<double> _ba
             double hi_shifted = (hi_value - out_base) / out_cell_width;
             double lo_shifted = (lo_value - out_base) / out_cell_width;
 
-            unsigned int hi_out_cell = int(hi_shifted);
-            unsigned int lo_out_cell = int(lo_shifted);
+            int hi_out_cell = int(hi_shifted);
+            int lo_out_cell = int(lo_shifted);
 
             double hi_out_prop = hi_shifted - hi_out_cell;
             double lo_out_prop = 1.0 - hi_out_prop;
 
-            if (hi_out_cell >= output_res)
-                hi_out_cell = output_res - 1;
-            if (lo_out_cell >= output_res)
-                lo_out_cell = output_res - 1;
+            if (hi_out_cell >= (int)output_res)
+                hi_out_cell = (int)output_res - 1;
+            if (lo_out_cell >= (int)output_res)
+                lo_out_cell = (int)output_res - 1;
             if (hi_out_cell < 0)
                 hi_out_cell = 0;
             if (lo_out_cell < 0)
@@ -200,16 +200,16 @@ CudaGrid CudaGridGenerator::generateCudaGridFromFunction(std::vector<double> _ba
                 double hi_shifted = (hi_value - out_base) / out_cell_width;
                 double lo_shifted = (lo_value - out_base) / out_cell_width;
 
-                unsigned int hi_out_cell = int(hi_shifted);
-                unsigned int lo_out_cell = int(lo_shifted);
+                int hi_out_cell = int(hi_shifted);
+                int lo_out_cell = int(lo_shifted);
 
                 double hi_out_prop = hi_shifted - hi_out_cell;
                 double lo_out_prop = 1.0 - hi_out_prop;
 
-                if (hi_out_cell >= output_res)
-                    hi_out_cell = output_res - 1;
-                if (lo_out_cell >= output_res)
-                    lo_out_cell = output_res - 1;
+                if (hi_out_cell >= (int)output_res)
+                    hi_out_cell = (int)output_res - 1;
+                if (lo_out_cell >= (int)output_res)
+                    lo_out_cell = (int)output_res - 1;
                 if (hi_out_cell < 0)
                     hi_out_cell = 0;
                 if (lo_out_cell < 0)
@@ -281,16 +281,16 @@ CudaGrid CudaGridGenerator::generateCudaGridFromFunction(std::vector<double> _ba
             double hi_shifted = (hi_value - out_base) / out_cell_width;
             double lo_shifted = (lo_value - out_base) / out_cell_width;
 
-            unsigned int hi_out_cell = int(hi_shifted);
-            unsigned int lo_out_cell = int(lo_shifted);
+            int hi_out_cell = int(hi_shifted);
+            int lo_out_cell = int(lo_shifted);
 
             double hi_out_prop = hi_shifted - hi_out_cell;
             double lo_out_prop = 1.0 - hi_out_prop;
 
-            if (hi_out_cell >= output_res)
-                hi_out_cell = output_res - 1;
-            if (lo_out_cell >= output_res)
-                lo_out_cell = output_res - 1;
+            if (hi_out_cell >= (int)output_res)
+                hi_out_cell = (int)output_res - 1;
+            if (lo_out_cell >= (int)output_res)
+                lo_out_cell = (int)output_res - 1;
             if (hi_out_cell < 0)
                 hi_out_cell = 0;
             if (lo_out_cell < 0)
@@ -315,7 +315,7 @@ CudaGrid CudaGridGenerator::generateCudaGridFromFunction(std::vector<double> _ba
             std::vector<double> resrow(_res[0]);
             for (unsigned int a = 0; a < _res[0]; a++) {
                 std::vector<double> start_point(2);
-                start_point[0] = start_point[0] = _base[0] + ((_dims[0] / _res[0]) * (a + 0.5));
+                start_point[0] = _base[0] + ((_dims[0] / _res[0]) * (a + 0.5));
                 start_point[1] = _base[1] + ((_dims[1] / _res[1]) * (b + 0.5));
 
                 // Build the list of values for the starting point to be sent to the python function
@@ -365,16 +365,16 @@ CudaGrid CudaGridGenerator::generateCudaGridFromFunction(std::vector<double> _ba
                 double hi_shifted = (hi_value - out_base) / out_cell_width;
                 double lo_shifted = (lo_value - out_base) / out_cell_width;
 
-                unsigned int hi_out_cell = int(hi_shifted);
-                unsigned int lo_out_cell = int(lo_shifted);
+                int hi_out_cell = int(hi_shifted);
+                int lo_out_cell = int(lo_shifted);
 
                 double hi_out_prop = hi_shifted - hi_out_cell;
                 double lo_out_prop = 1.0 - hi_out_prop;
 
-                if (hi_out_cell >= output_res)
-                    hi_out_cell = output_res - 1;
-                if (lo_out_cell >= output_res)
-                    lo_out_cell = output_res - 1;
+                if (hi_out_cell >= (int)output_res) 
+                    hi_out_cell = (int)output_res - 1;
+                if (lo_out_cell >= (int)output_res)
+                    lo_out_cell = (int)output_res - 1;
                 if (hi_out_cell < 0)
                     hi_out_cell = 0;
                 if (lo_out_cell < 0)

@@ -45,18 +45,28 @@ def plotDist1D(dist, range=range(100)):
     fig, ax = plt.subplots(1, 1)
     ax.plot(range, dist_read)
     fig.tight_layout()
-    plt.show()
 
-def plotDist2D(dist, res=(100,100)):
+def plotDist2D(dist, res=(100,100), _extent=[0,100,0,100]):
     dist = cj.readDist(dist)
     dist = np.array(dist)
     dist = dist.reshape(res)
 
     fig, ax = plt.subplots(1, 1)
+    ax.set(xticks=[0, 99], xticklabels=[_extent[0], _extent[1]], yticks=[0, 99], yticklabels=[int(_extent[2]), int(_extent[3])]);
     plt.imshow(dist, cmap='hot', interpolation='nearest')
 
+def plotDist3D(dist, res=(100,100,100)):
 
-def plotDist3D(dist, points, res=(100,100,100)):
+    points = []
+    for z in np.linspace(cj.base(dist)[2], cj.base(dist)[2] + cj.size(dist)[2], 100):
+        points_col = []
+        for y in np.linspace(cj.base(dist)[1], cj.base(dist)[1] + cj.size(dist)[1], 100):
+            points_dep = []
+            for x in np.linspace(cj.base(dist)[0], cj.base(dist)[0] + cj.size(dist)[0], 100):
+                points_dep = points_dep + [(x,y,z)]
+            points_col = points_col + [points_dep]
+        points = points + [points_col]
+
     dist = cj.readDist(dist)
     dist = np.array(dist)
     dist = dist.reshape(res)
@@ -489,7 +499,7 @@ for x in range(100):
 # Unfortunately stats.norm doesn't provide a nice pmf approximation of the pdf. 
 # So let's just do that ourselves without breaking our backs by multiplying across by the discretisation width and normalising
 vpdf = [a * (40.0/100) for a in norm.pdf(v, -70.6, 0.1)]
-wpdf = [a * (26.0/100) for a in norm.pdf(w, 20.001, 0.1)]
+wpdf = [a * (26.0/100) for a in norm.pdf(w, 23.001, 0.1)]
 updf = [a * (55.0/100) for a in norm.pdf(u, 0.001, 0.1)]
 
 vpdf = [a / sum(vpdf) for a in vpdf]
@@ -519,9 +529,6 @@ c_vwvu = cj.function([cj.base(c_vw)[2],cj.base(c_vu)[2]],[cj.size(c_vw)[2],cj.si
 #plt.show()
 
 c_v_prime = cj.boundedFunction([-80.0,cj.base(c_vwvu)[2]],[40.0,cj.size(c_vwvu)[2]],[100,100],v_prime, -80.0, 40.0, 100)
-
-#plotDist3D(c_v_prime, points)
-#plt.show()
 
 # w1 and u1 are easy to calculate - they're just chains
 print("w1 and u1 are easy to calculate - they're just chains.")
@@ -554,17 +561,13 @@ print("Next calculate the distributions from the conditionals wv and uv. v0 and 
 joint_v_w = cj.newDistFrom2(v0, w0)
 joint_v_u = cj.newDistFrom2(v0, u0)
 
-#plotDist2D(joint_v_w)
-#plotDist2D(joint_v_u)
-#plt.show()
-
 joint_v_w_vw = cj.newDist([-80.0,-1.0,cj.base(c_vw)[2]],[40.0,26.0,cj.size(c_vw)[2]],[100,100,100], [a for a in np.zeros(1000000)])
 joint_v_u_vu = cj.newDist([-80.0,-5.0,cj.base(c_vu)[2]],[40.0,55.0,cj.size(c_vu)[2]],[100,100,100], [a for a in np.zeros(1000000)])
 
 cj.collider(joint_v_w, [0,1], c_vw, joint_v_w_vw)
 cj.collider(joint_v_u, [0,1], c_vu, joint_v_u_vu)
 
-#plotDist3D(joint_v_w_vw, points)
+#plotDist3D(joint_v_w_vw)
 #plt.show()
 
 # To calculate vwvu, we must find the joint probability vw and vu which are dependent (via v)
@@ -579,7 +582,15 @@ cj.marginal(joint_v_w_vw, 1, joint_v_vw)
 cj.marginal(joint_v_u_vu, 1, joint_v_vu)
 
 #plotDist2D(joint_v_vw)
+#plotDist3D(joint_v_w_vw)
 #plt.show()
+#plotDist2D(joint_v_vu)
+#plotDist3D(joint_v_u_vu)
+#plt.show()
+
+#print("joint_v_vw", cj.base(joint_v_vw)[0], cj.size(joint_v_vw)[0], cj.base(joint_v_vw)[1], cj.size(joint_v_vw)[1])
+#print("joint_v_vu", cj.base(joint_v_vu)[0], cj.size(joint_v_vu)[0], cj.base(joint_v_vu)[1], cj.size(joint_v_vu)[1])
+
 
 # Now calculate the conditionals wv|v and uv|v
 print("Now calculate the conditionals wv|v and uv|v")
@@ -588,9 +599,6 @@ vu_given_v = cj.newDist([-80.0, cj.base(c_vu)[2]], [40.0, cj.size(c_vu)[2]], [10
 
 cj.conditional(joint_v_vw, [0], v0, vw_given_v)
 cj.conditional(joint_v_vu, [0], v0, vu_given_v)
-
-#plotDist2D(vw_given_v)
-#plt.show()
 
 # Now calculate the joint probability wv uv
 print("Now calculate the joint probability wv uv")
@@ -603,13 +611,19 @@ joint_vw_vu = cj.newDist([cj.base(c_vw)[2],cj.base(c_vu)[2]],[cj.size(c_vw)[2],c
 cj.marginal(joint_v_vw_vu, 0, joint_vw_vu)
 
 #plotDist2D(joint_vw_vu)
+#plotDist3D(joint_v_vw_vu)
 #plt.show()
+
+#print("joint_vw_vu", cj.base(joint_vw_vu)[0], cj.size(joint_vw_vu)[0], cj.base(joint_vw_vu)[1], cj.size(joint_vw_vu)[1])
 
 # Now vwvu can be calculated from the joint distribution and function conditional
 print("Now vwvu can be calculated from the joint distribution and function conditional")
 joint_vw_vu_vwvu = cj.newDist([cj.base(c_vw)[2],cj.base(c_vu)[2],cj.base(c_vwvu)[2]],[cj.size(c_vw)[2],cj.size(c_vu)[2],cj.size(c_vwvu)[2]],[100,100,100], [a for a in np.zeros(1000000)])
 
 cj.collider(joint_vw_vu, [0,1], c_vwvu, joint_vw_vu_vwvu)
+
+#plotDist3D(joint_vw_vu_vwvu)
+#plt.show()
 
 # Finally, we need to calculate v'. However, as before, vwvu and v0 are not independent. So we start the long road to calculating the joint probability
 # We have a fork followed by a collider creating a diamond shape
@@ -636,6 +650,10 @@ joint_v0_vu = cj.newDist([-80.0,cj.base(c_vu)[2]],[40.0,cj.size(c_vu)[2]],[100,1
 cj.joint2D(v0, 0, vu_given_v, joint_v0_vu)
 
 #plotDist2D(joint_v0_vw)
+#plotDist2D(joint_v0_vu)
+#plt.show()
+
+#plotDist2D(joint_v0_vw)
 #plt.show()
 
 # Now we have P(v0,vw). We need to find P(vwvu|vw) to complete the chain.
@@ -646,17 +664,16 @@ marginal_vw = cj.newDist([cj.base(c_vw)[2]],[cj.size(c_vw)[2]],[100], [a for a i
 cj.marginal(joint_vw_vu_vwvu, 1, marginal_vw_vwvu)
 cj.marginal(marginal_vw_vwvu, 1, marginal_vw)
 
+#plotDist3D(joint_vw_vu_vwvu)
+#plotDist2D(marginal_vw_vwvu)
+#plotDist1D(marginal_vw)
+#plt.show()
+
 marginal_vu_vwvu = cj.newDist([cj.base(c_vu)[2],cj.base(c_vwvu)[2]],[cj.size(c_vu)[2],cj.size(c_vwvu)[2]],[100,100], [a for a in np.zeros(10000)])
 marginal_vu = cj.newDist([cj.base(c_vu)[2]],[cj.size(c_vu)[2]],[100], [a for a in np.zeros(100)])
 
 cj.marginal(joint_vw_vu_vwvu, 0, marginal_vu_vwvu)
 cj.marginal(marginal_vu_vwvu, 1, marginal_vu)
-
-#plotDist1D(marginal_vw)
-#plt.show()
-
-#plotDist2D(marginal_vw_vwvu)
-#plt.show()
 
 vwvu_given_vw = cj.newDist([cj.base(c_vw)[2],cj.base(c_vwvu)[2]],[cj.size(c_vw)[2],cj.size(c_vwvu)[2]],[100,100], [a for a in np.zeros(10000)])
 
@@ -670,6 +687,9 @@ joint_v0_vw_vwvu = cj.newDist([-80.0,cj.base(c_vw)[2],cj.base(c_vwvu)[2]],[40.0,
 
 cj.joint3D(joint_v0_vw, 1, vwvu_given_vw, joint_v0_vw_vwvu)
 
+#plotDist3D(joint_v0_vw_vwvu)
+#plt.show()
+
 # We have the joint, now find the marginal v0,vwvu which we can use to find v1
 print("We have the joint, now find the marginal v0,vwvu which we can use to find v1")
 marginal_v0_vwvu = cj.newDist([-80.0,cj.base(c_vwvu)[2]],[40.0,cj.size(c_vwvu)[2]],[100,100], [a for a in np.zeros(10000)])
@@ -679,11 +699,20 @@ cj.marginal(joint_v0_vw_vwvu, 1, marginal_v0_vwvu)
 #plotDist2D(marginal_v0_vwvu)
 #plt.show()
 
+print("marginal_v0_vwvu", cj.size(marginal_v0_vwvu)[0], cj.size(marginal_v0_vwvu)[1])
+
 # Now find v1 using the function conditional
 print("Now find v1 using the function conditional")
 joint_v0_vwvu_v1 = cj.newDist([-80.0,cj.base(c_vwvu)[2],-80.0],[40.0,cj.size(c_vwvu)[2],40.0],[100,100,100], [a for a in np.zeros(1000000)])
 
 cj.collider(marginal_v0_vwvu, [0,1], c_v_prime, joint_v0_vwvu_v1)
+
+print(cj.total(joint_v0_vwvu_v1))
+
+#plotDist3D(joint_v0_vwvu_v1)
+#plt.show()
+
+print("joint_v0_vwvu_v1", cj.size(joint_v0_vwvu_v1)[0], cj.size(joint_v0_vwvu_v1)[1], cj.size(joint_v0_vwvu_v1)[2])
 
 # Grab v1 from the joint distirbution
 print("Grab v1 from the joint distirbution")
@@ -692,7 +721,12 @@ marginal_vwvu_v1 = cj.newDist([cj.base(c_vwvu)[2],-80.0],[cj.size(c_vwvu)[2],40.
 v1 = cj.newDist([-80.0],[40.0],[100],[a for a in np.zeros(100)])
 
 cj.marginal(joint_v0_vwvu_v1, 0, marginal_vwvu_v1)
+print(cj.total(marginal_vwvu_v1))
 cj.marginal(marginal_vwvu_v1, 0, v1)
+
+print(cj.total(v1))
+
+print("marginal_vwvu_v1", cj.size(marginal_vwvu_v1)[0], cj.size(marginal_vwvu_v1)[1])
 
 dist_v0 = cj.readDist(v0)
 dist_v1 = cj.readDist(v1)
@@ -766,20 +800,21 @@ marginal_u0_v1 = cj.newDist([-5.0, -80.0], [55.0, 40.0], [100,100], [a for a in 
 
 cj.joint3D(marginal_u0_vwvu, 1, v1_given_vwvu, joint_u0_vwvu_v1)
 cj.marginal(joint_u0_vwvu_v1, 1, marginal_u0_v1)
+
 cj.conditional(marginal_u0_v1, [0], u0, v1_given_u0)
 
 # We can now correctly define the joint distributions v',m' and v',u' and this should be the same each iteration
 
-joint_w0_w1_v1 = cj.newDist([-1.0,-1.0,-80.0],[26.0,26.0,40.0],[100,100,100], [a for a in np.zeros(1000000)])
-joint_u0_u1_v1 = cj.newDist([-5.0,-5.0,-80.0],[55.0,55.0,40.0],[100,100,100], [a for a in np.zeros(1000000)])
-joint_w1_v1 = cj.newDist([-1.0,-80.0],[26.0,40.0],[100,100], [a for a in np.zeros(10000)])
-joint_u1_v1 = cj.newDist([-5.0,-80.0],[55.0,40.0],[100,100], [a for a in np.zeros(10000)])
+joint_w0_v1_w1 = cj.newDist([-1.0,-80.0,-1.0],[26.0,40.0,26.0],[100,100,100], [a for a in np.zeros(1000000)])
+joint_u0_v1_u1 = cj.newDist([-5.0,-80.0,-5.0],[55.0,40.0,55.0],[100,100,100], [a for a in np.zeros(1000000)])
+joint_v1_w1 = cj.newDist([-80.0,-1.0],[40.0,26.0],[100,100], [a for a in np.zeros(10000)])
+joint_v1_u1 = cj.newDist([-80.0,-5.0],[40.0,55.0],[100,100], [a for a in np.zeros(10000)])
 
-cj.fork(w0, 0, v1_given_w0, 0, c_w_prime, joint_w0_w1_v1)
-cj.fork(u0, 0, v1_given_u0, 0, c_u_prime, joint_u0_u1_v1)
+cj.fork(w0, 0, v1_given_w0, 0, c_w_prime, joint_w0_v1_w1)
+cj.fork(u0, 0, v1_given_u0, 0, c_u_prime, joint_u0_v1_u1)
 
-cj.marginal(joint_w0_w1_v1, 0, joint_w1_v1)
-cj.marginal(joint_u0_u1_v1, 0, joint_u1_v1)
+cj.marginal(joint_w0_v1_w1, 0, joint_v1_w1)
+cj.marginal(joint_u0_v1_u1, 0, joint_v1_u1)
 
 # Record v0,w0,u0 and v1,w1,u1 here if we wish.
 
@@ -803,17 +838,27 @@ for i in range(100):
     cj.marginal(w0w1, 0, w2)
     cj.marginal(u0u1, 0, u2)
 
-    # Any deviation from the mass summing to 1.0 and we get some nasty blowup or collapse
-    # Rescale w2 and u2 to sum to 1.0
+    # For argument's sake, let's keep w up high
+    # Note setting w2 or w1 to wpdf makes everything blow up because those distributions are
+    # closely linked to other distributions which were calculated on the previous iterations.
+    # Namely, v1_given_w0. If we try to calculate v1_given_w0 using 
+    # cj.conditional(marginal_w0_v1, [0], w1, v1_given_w0) with an artificially shifted
+    # distribution w1, it doesn't match up with the calculated marginal_w0_v1
+    # and you get stupid numbers.
+    
+    cj.update(w0, wpdf)
 
-    cj.rescale(w2)
-    cj.rescale(u2)
+    # Any deviation from the mass summing to 1.0 and we get some nasty blowup or collapse
+    # Rescale w2 and u2 to each sum to 1.0
+
+    #cj.rescale(w2)
+    #cj.rescale(u2)
 
     # Calculate v'
 
     # vw and vu
-    cj.collider(joint_w1_v1, [0,1], c_vw, joint_v_w_vw)
-    cj.collider(joint_u1_v1, [0,1], c_vu, joint_v_u_vu)
+    cj.collider(joint_v1_w1, [0,1], c_vw, joint_v_w_vw)
+    cj.collider(joint_v1_u1, [0,1], c_vu, joint_v_u_vu)
 
     cj.marginal(joint_v_w_vw, 1, joint_v_vw)
     cj.marginal(joint_v_u_vu, 1, joint_v_vu)
@@ -828,8 +873,6 @@ for i in range(100):
     cj.collider(joint_vw_vu, [0,1], c_vwvu, joint_vw_vu_vwvu)
 
     # vwvu|v1
-    cj.joint2D(v1, 0, vw_given_v, joint_v0_vw)
-    cj.joint2D(v1, 0, vu_given_v, joint_v0_vu)
 
     cj.marginal(joint_vw_vu_vwvu, 1, marginal_vw_vwvu)
     cj.marginal(marginal_vw_vwvu, 1, marginal_vw)
@@ -839,18 +882,39 @@ for i in range(100):
 
     cj.conditional(marginal_vw_vwvu, [0], marginal_vw, vwvu_given_vw)
     cj.conditional(marginal_vu_vwvu, [0], marginal_vu, vwvu_given_vu)
-    cj.joint3D(joint_v0_vw, 1, vwvu_given_vw, joint_v0_vw_vwvu)
+    cj.joint3D(joint_v_vw, 1, vwvu_given_vw, joint_v0_vw_vwvu)
 
     cj.marginal(joint_v0_vw_vwvu, 1, marginal_v0_vwvu)
     cj.collider(marginal_v0_vwvu, [0,1], c_v_prime, joint_v0_vwvu_v1)
 
     cj.marginal(joint_v0_vwvu_v1, 0, marginal_vwvu_v1)
     cj.marginal(marginal_vwvu_v1, 0, v2)
+    
+    # Now we've calculated v2, we can actually perform the threshold-reset functionality easily!
 
-    # Any deviation from the mass summing to 1.0 and we get some nasty blowup or collapse
-    # Rescale v2 to sum to 1.0
+    v_dist = cj.readDist(v0)
 
-    cj.rescale(v2)
+    threshold = -60.0
+    reset = -70.6
+    threshold_cell = int((threshold - cj.base(v0)[0]) / (cj.size(v0)[0] / cj.res(v0)[0]))
+    reset_cell = int((reset - cj.base(v0)[0]) / (cj.size(v0)[0] / cj.res(v0)[0]))
+
+    print(threshold_cell, reset_cell)
+
+    n_mass = [a for a in v_dist]
+    reset_mass = 0.0
+    for i in range(cj.res(v0)[0]):
+        if i >= threshold_cell and v_dist[i] > 0.0:
+            reset_mass += v_dist[i]
+            n_mass[reset_cell] += v_dist[i]
+            n_mass[i] = 0.0
+    
+    cj.update(v0, n_mass)
+
+     # Any deviation from the mass summing to 1.0 and we get some nasty blowup or collapse
+     #Rescale v2 to sum to 1.0
+
+    #cj.rescale(v2)
 
     # Update joint distributions w'v' and u'v'
     cj.marginal(joint_v_w_vw, 0, marginal_w0_vw)
@@ -875,15 +939,23 @@ for i in range(100):
     cj.marginal(joint_u0_vwvu_v1, 1, marginal_u0_v1)
     cj.conditional(marginal_u0_v1, [0], u1, v1_given_u0)
     
-    cj.fork(w1, 0, v1_given_w0, 0, c_w_prime, joint_w0_w1_v1)
-    cj.fork(u1, 0, v1_given_u0, 0, c_u_prime, joint_u0_u1_v1)
+    cj.fork(w1, 0, v1_given_w0, 0, c_w_prime, joint_w0_v1_w1)
+    cj.fork(u1, 0, v1_given_u0, 0, c_u_prime, joint_u0_v1_u1)
 
-    cj.marginal(joint_w0_w1_v1, 0, joint_w1_v1)
-    cj.marginal(joint_u0_u1_v1, 0, joint_u1_v1)
+    cj.marginal(joint_w0_v1_w1, 0, joint_v1_w1)
+    cj.marginal(joint_u0_v1_u1, 0, joint_v1_u1)
 
     # Record distributions if you wish here.
 
-    plotDist1D(w0, w)
+    dist_v = cj.readDist(v0)
+    dist_w = cj.readDist(w0)
+    dist_u = cj.readDist(u0)
+
+    fig, ax = plt.subplots(2,2)
+    ax[0,0].plot(v, dist_v)
+    ax[0,1].plot(w, dist_w)
+    ax[1,0].plot(u, dist_u)
+    fig.tight_layout()
     plt.show()
 
     # Transfer v1,w1,u1 -> v0,w0,u0, transfer v2,w2,u2 -> v1,w1,u1

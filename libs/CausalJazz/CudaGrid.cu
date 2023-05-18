@@ -45,3 +45,13 @@ std::vector<fptype> CudaGrid::readProbabilityMass() {
 
 	return out;
 }
+
+void CudaGrid::updateMass(std::vector<double> A) {
+	// TODO: Sanity check that A.size == num_cells
+	// Convert A from doubles to fptypes
+	std::vector<fptype> copydata;
+	for (auto a : A)
+		copydata.push_back((fptype)a);
+
+	checkCudaErrors(cudaMemcpy(probability_mass, &copydata[0], getTotalNumCells() * sizeof(fptype), cudaMemcpyHostToDevice));
+}

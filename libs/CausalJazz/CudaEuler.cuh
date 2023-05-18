@@ -363,6 +363,32 @@ __global__ void GenerateJointDistributionFromColliderGivenAC(
     fptype* AC,
     fptype* BgivenAC);
 
+__global__ void GenerateJointDistributionFromColliderGivenBA(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype num_A_cells,
+    inttype num_B_cells,
+    fptype* AB,
+    fptype* CgivenAB);
+
+__global__ void GenerateJointDistributionFromColliderGivenCB(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype num_A_cells,
+    inttype num_B_cells,
+    inttype num_C_cells,
+    fptype* BC,
+    fptype* AgivenBC);
+
+__global__ void GenerateJointDistributionFromColliderGivenCA(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype num_A_cells,
+    inttype num_B_cells,
+    inttype num_C_cells,
+    fptype* AC,
+    fptype* BgivenAC);
+
 __global__ void GenerateMarginalAB(
     inttype num_marginal_cells,
     fptype* out,

@@ -884,6 +884,65 @@ __global__ void GenerateJointDistributionFromColliderGivenAC(
     }
 }
 
+__global__ void GenerateJointDistributionFromColliderGivenBA(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype num_A_cells,
+    inttype num_B_cells,
+    fptype* AB,
+    fptype* CgivenAB)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_ABC_cells; i += stride) {
+        inttype C_joint = int(i / (num_A_cells * num_B_cells));
+        inttype B_joint = int(modulo(i, num_A_cells * num_B_cells) / num_A_cells);
+        inttype A_joint = modulo(i, num_A_cells);
+        out[i] = AB[(A_joint * num_B_cells) + B_joint] * CgivenAB[i];
+    }
+}
+
+__global__ void GenerateJointDistributionFromColliderGivenCB(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype num_A_cells,
+    inttype num_B_cells,
+    inttype num_C_cells,
+    fptype* BC,
+    fptype* AgivenBC)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_ABC_cells; i += stride) {
+        inttype C_joint = int(i / (num_A_cells * num_B_cells));
+        inttype B_joint = int(modulo(i, num_A_cells * num_B_cells) / num_A_cells);
+        inttype A_joint = modulo(i, num_A_cells);
+        out[i] = BC[(B_joint * num_C_cells) + C_joint] * AgivenBC[i];
+    }
+}
+
+__global__ void GenerateJointDistributionFromColliderGivenCA(
+    inttype num_ABC_cells,
+    fptype* out,
+    inttype num_A_cells,
+    inttype num_B_cells,
+    inttype num_C_cells,
+    fptype* AC,
+    fptype* BgivenAC)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_ABC_cells; i += stride) {
+        inttype C_joint = int(i / (num_A_cells * num_B_cells));
+        inttype B_joint = int(modulo(i, num_A_cells * num_B_cells) / num_A_cells);
+        inttype A_joint = modulo(i, num_A_cells);
+        out[i] = AC[(A_joint * num_C_cells) + C_joint] * BgivenAC[i];
+    }
+}
+
 // Result is AB from ABC
 __global__ void GenerateMarginalAB(
     inttype num_marginal_cells,

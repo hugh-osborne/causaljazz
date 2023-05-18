@@ -18,6 +18,7 @@ public:
 
 	fptype* getProbabilityMass() { return probability_mass; }
 	std::vector<fptype> readProbabilityMass();
+	void updateMass(std::vector<double> A);
 
 private:
 	
