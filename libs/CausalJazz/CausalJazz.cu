@@ -91,6 +91,30 @@ unsigned int CausalJazz::addDistribution(std::vector<double> _base, std::vector<
 	return grids.size() - 1;
 }
 
+void CausalJazz::buildJointDistributionFrom2Independents(CudaGrid* A, CudaGrid* B, unsigned int out) {
+	unsigned int numBlocks = (grids[out].getTotalNumCells() + block_size - 1) / block_size;
+
+	GenerateJointDistributionFrom2Independents << <numBlocks, block_size >> > (
+		grids[out].getTotalNumCells(),
+		grids[out].getProbabilityMass(),
+		A->getTotalNumCells(),
+		A->getProbabilityMass(),
+		B->getProbabilityMass());
+}
+
+void CausalJazz::buildJointDistributionFrom3Independents(CudaGrid* A, CudaGrid* B, CudaGrid* C, unsigned int out) {
+	unsigned int numBlocks = (grids[out].getTotalNumCells() + block_size - 1) / block_size;
+
+	GenerateJointDistributionFrom3Independents << <numBlocks, block_size >> > (
+		grids[out].getTotalNumCells(),
+		grids[out].getProbabilityMass(),
+		A->getTotalNumCells(),
+		A->getProbabilityMass(),
+		B->getTotalNumCells(),
+		B->getProbabilityMass(),
+		C->getProbabilityMass());
+}
+
 void CausalJazz::buildJointDistributionFromChain(CudaGrid* A, unsigned int givendim, CudaGrid* BgivenA, unsigned int out) {
 	unsigned int numBlocks = (grids[out].getTotalNumCells() + block_size - 1) / block_size;
 

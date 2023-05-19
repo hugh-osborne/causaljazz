@@ -1280,6 +1280,141 @@ PyObject* fastmass_joint3(PyObject* self, PyObject* args)
     }
 }
 
+PyObject* fastmass_joint2i(PyObject* self, PyObject* args)
+{
+    /* Get arbitrary number of strings from Py_Tuple */
+    Py_ssize_t i = 0;
+    PyObject* temp_p, * temp_p2;
+
+    unsigned int a_id;
+    unsigned int b_id;
+    unsigned int joint_id;
+
+    try {
+        // A
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            a_id = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        // B
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            b_id = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        // joint dist id
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            joint_id = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        CudaGrid* a_grid = jazz->getGrid(a_id);
+        CudaGrid* b_grid = jazz->getGrid(b_id);
+
+        jazz->buildJointDistributionFrom2Independents(a_grid, b_grid, joint_id);
+
+        Py_RETURN_NONE;
+    }
+    catch (const std::exception& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    catch (...) {
+        PyErr_SetString(PyExc_RuntimeError, "Unhandled Exception during generateNdGrid()");
+        return NULL;
+    }
+}
+
+PyObject* fastmass_joint3i(PyObject* self, PyObject* args)
+{
+    /* Get arbitrary number of strings from Py_Tuple */
+    Py_ssize_t i = 0;
+    PyObject* temp_p, * temp_p2;
+
+    unsigned int a_id;
+    unsigned int b_id;
+    unsigned int c_id;
+    unsigned int joint_id;
+
+    try {
+        // A
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            a_id = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        // B
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            b_id = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        // C
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            c_id = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        // joint dist id
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            joint_id = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        CudaGrid* a_grid = jazz->getGrid(a_id);
+        CudaGrid* b_grid = jazz->getGrid(b_id);
+        CudaGrid* c_grid = jazz->getGrid(c_id);
+
+        jazz->buildJointDistributionFrom3Independents(a_grid, b_grid, c_grid, joint_id);
+
+        Py_RETURN_NONE;
+    }
+    catch (const std::exception& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    catch (...) {
+        PyErr_SetString(PyExc_RuntimeError, "Unhandled Exception during generateNdGrid()");
+        return NULL;
+    }
+}
+
 PyObject* fastmass_chain(PyObject* self, PyObject* args)
 {
     /* Get arbitrary number of strings from Py_Tuple */
@@ -2134,6 +2269,8 @@ static PyMethodDef pycausaljazz_functions[] = {
     {"conditional", (PyCFunction)fastmass_conditional, METH_VARARGS, "Jazz : Calculate a conditional."},
     {"joint2D", (PyCFunction)fastmass_joint2, METH_VARARGS, "Jazz : Calculate a 2D joint distribution from p(A)*p(B|A)."},
     {"joint3D", (PyCFunction)fastmass_joint3, METH_VARARGS, "Jazz : Calculate a 3D joint distribution from p(AB)*p(C|A)."},
+    {"joint2Di", (PyCFunction)fastmass_joint2i, METH_VARARGS, "Jazz : Calculate a 2D joint distribution from p(A)*p(B)."},
+    {"joint3Di", (PyCFunction)fastmass_joint3i, METH_VARARGS, "Jazz : Calculate a 3D joint distribution from p(A)*p(B)*p(C)."},
     {"chain", (PyCFunction)fastmass_chain, METH_VARARGS, "Jazz : Calculate a joint distribution from a chain structure p(A)*p(B|A)*p(C|B)."},
     {"fork", (PyCFunction)fastmass_fork, METH_VARARGS, "Jazz : Calculate a joint distribution from a fork structure p(A)*p(B|A)*p(C|A)."},
     {"collider", (PyCFunction)fastmass_collider, METH_VARARGS, "Jazz : Calculate a joint distribution from a collider structure p(AB)*p(C|AB)."},
