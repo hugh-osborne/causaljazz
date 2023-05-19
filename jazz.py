@@ -427,6 +427,26 @@ def cond(y):
 
     return [v + 0.1*v_prime, w + 0.1*w_prime, u + 0.1*u_prime]
 
+def cond_diff(y):
+    E_l = -70.6
+    V_thres = -50.4 
+    E_e = 0.0
+    E_i = -75
+    C = 281
+    g_l = 0.03
+    tau_e = 2.728
+    tau_i = 10.49
+
+    v = y[0]
+    w = y[1]
+    u = y[2]
+
+    v_prime = (-g_l*(v - E_l) - w * (v - E_e) - u * (v - E_i)) / C
+    w_prime = 0.0
+    u_prime = -(u) / tau_i
+
+    return [v_prime, w_prime, u_prime]
+
 def w_prime(y):
     w = y[0]
     tau_e = 2.728
@@ -478,12 +498,11 @@ def v_prime(y):
 
     return v + dt*v_prime
 
-res = 200
-v_res = 200
-w_res = 200
-u_res = 200
+res = 100
+v_res = 100
+w_res = 100
+u_res = 100
 
-# cond_grid = cj.generate(cond,  [-80.0,-1.0,-5.0], [40.0,26.0,55.0], [150,100,100], -50.4, -70.6, [0,0,0], dt)
 # Set up the starting distribution
 v = np.linspace(-80.0, -40.0, v_res)
 w = np.linspace(-1.0, 25.0, w_res)
@@ -516,6 +535,14 @@ u0 = cj.newDist([-5.0],[55.0],[u_res],[a for a in updf])
 
 # Initialise the monte carlo neurons
 mc_neurons = np.array([[norm.rvs(-70.6, 0.4, 1)[0],norm.rvs(13.0, 0.4, 1)[0],norm.rvs(0.0, 0.4, 1)[0]] for a in range(5000)])
+
+# Initialise the MIIND (Redux) simulation
+miind_cond_grid = cj.generate(cond_diff,  [-80.0,-1.0,-5.0], [40.0,26.0,55.0], [100,100,100], -50, -70.6, [0,0,0], 0.1)
+cj.init(0.1, False)
+
+pop3 = cj.addPopulation(miind_cond_grid, [-70.6, 13.001, 0.001], 0.0, False)
+
+######
 
 c_w_prime = cj.boundedFunction([-1.0],[26.0],[w_res], w_prime, -1.0,  6.0, w_res)
 c_u_prime = cj.boundedFunction([-5.0],[55.0],[u_res], u_prime, -5.0, 55.0, u_res)
@@ -822,6 +849,17 @@ u2 = cj.newDist([-5.0],[55.0],[u_res],[a for a in np.zeros(u_res)])
 joint_v2_w2 = cj.newDist([-80.0,-1.0],[40.0,26.0],[v_res,w_res], [a for a in np.zeros(v_res*w_res)])
 joint_v2_u2 = cj.newDist([-80.0,-5.0],[40.0,55.0],[v_res,u_res], [a for a in np.zeros(v_res*u_res)])
 
+# Start the simulation
+cj.start()
+
+# We can use causal jazz distributions to read and manage distributions from the MIIND redux simulation. Nice!
+miind_mass_grid = cj.newDist([-80.0,-1.0,-5.0], [40.0,26.0,55.0], [100,100,100], [a for a in np.zeros(100*100*100)])
+miind_marginal_vw = cj.newDist([-80.0,-1.0], [40.0,26.0], [100,100], [a for a in np.zeros(100*100)])
+miind_marginal_vu = cj.newDist([-80.0,-5.0], [40.0,55.0], [100,100], [a for a in np.zeros(100*100)])
+miind_marginal_v = cj.newDist([-80.0], [40.0], [100], [a for a in np.zeros(100)])
+miind_marginal_w = cj.newDist([-1.0], [26.0], [100], [a for a in np.zeros(100)])
+miind_marginal_u = cj.newDist([-5.0], [55.0], [100], [a for a in np.zeros(100)])
+
 # Lets try 10 iterations
 for i in range(100):
 
@@ -952,6 +990,28 @@ for i in range(100):
     dist_w = cj.readDist(w0)
     dist_u = cj.readDist(u0)
 
+    # Also run the MIIND (Redux) simulation
+
+    cj.step()
+    #rates1 = rates1 + [cj.readRates()[0]*1000]
+    mass = cj.readMass(pop3)
+    
+    cj.update(miind_mass_grid, [a for a in mass])
+
+    cj.marginal(miind_mass_grid, 2, miind_marginal_vw)
+    cj.marginal(miind_mass_grid, 1, miind_marginal_vu)
+    cj.marginal(miind_marginal_vw, 1, miind_marginal_v)
+    cj.marginal(miind_marginal_vw, 0, miind_marginal_w)
+    cj.marginal(miind_marginal_vu, 0, miind_marginal_u)
+
+    miind_dist_v = cj.readDist(miind_marginal_v)
+    miind_dist_w = cj.readDist(miind_marginal_w)
+    miind_dist_u = cj.readDist(miind_marginal_u)
+
+    miind_dist_v = [a / (40.0/100) for a in miind_dist_v]
+    miind_dist_w = [a / (26.0/100) for a in miind_dist_w]
+    miind_dist_u = [a / (55.0/100) for a in miind_dist_u]
+
     # The monte carlo hist function gives density not mass (booo)
     # so let's just convert to density here
 
@@ -962,10 +1022,13 @@ for i in range(100):
     fig, ax = plt.subplots(2,2)
     ax[0,0].plot(v, dist_v)
     ax[0,0].hist(mc_neurons[:,0], density=True, bins=v_res, range=[-80.0,-40.0], histtype='step')
+    ax[0,0].plot(np.linspace(-80.0,-40.0,100), miind_dist_v)
     ax[0,1].plot(w, dist_w)
     ax[0,1].hist(mc_neurons[:,1], density=True, bins=w_res, range=[-1.0,25.0], histtype='step')
+    ax[0,1].plot(np.linspace(-1.0,25.0,100), miind_dist_w)
     ax[1,0].plot(u, dist_u)
     ax[1,0].hist(mc_neurons[:,2], density=True, bins=u_res, range=[-5.0,50.0], histtype='step')
+    ax[1,0].plot(np.linspace(-5.0,55.0,100), miind_dist_u)
     fig.tight_layout()
     plt.show()
 
@@ -978,3 +1041,6 @@ for i in range(100):
     cj.transfer(u2,u1)
     cj.transfer(joint_v2_w2, joint_v1_w1)
     cj.transfer(joint_v2_u2, joint_v1_u1)
+
+# Shutdown MIIND redux simulation
+cj.shutdown()
