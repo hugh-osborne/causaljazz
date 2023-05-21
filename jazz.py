@@ -1,3 +1,4 @@
+from distutils.ccompiler import show_compilers
 from pycausaljazz import pycausaljazz as cj
 import numpy as np
 import numpy.random as random
@@ -7,11 +8,25 @@ from scipy.stats import norm
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.cm as cm
 
+import miind.miind_api as api
+import miind.miind_api.tools as tools
+import os
+import miind.miindsimv as miind
+
+def find_nearest(array, value):
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    return idx
+
 test_1D = False
 test_2D = False
 test_3D = False
 test_Function_to_Conditional = False
 test_deomposition = True
+
+show_miind_redux = False
+show_monte_carlo = True
+show_miind_orig = False
 
 
 def plot3D(points, data):
@@ -542,6 +557,10 @@ cj.init(0.1, False)
 
 pop3 = cj.addPopulation(miind_cond_grid, [-70.6, 13.001, 0.001], 0.0, False)
 
+# Read MIIND (ORiginal) simulation (performed elsehwere)
+
+sim = api.MiindSimulation("cond3D.xml")
+
 ######
 
 c_w_prime = cj.boundedFunction([-1.0],[26.0],[w_res], w_prime, -1.0,  6.0, w_res)
@@ -746,15 +765,15 @@ v1 = cj.newDist([-80.0],[40.0],[v_res],[a for a in np.zeros(v_res)])
 cj.marginal(joint_v0_vwvu_v1, 0, marginal_vwvu_v1)
 cj.marginal(marginal_vwvu_v1, 0, v1)
 
-dist_v0 = cj.readDist(v0)
-dist_v1 = cj.readDist(v1)
+#dist_v0 = cj.readDist(v0)
+#dist_v1 = cj.readDist(v1)
 
-fig, ax = plt.subplots(1, 1)
-ax.set_title('v0 -> v1')
-ax.plot(v, dist_v0)
-ax.plot(v, dist_v1, linestyle="--")
-fig.tight_layout()
-plt.show()
+#fig, ax = plt.subplots(1, 1)
+#ax.set_title('v0 -> v1')
+#ax.plot(v, dist_v0)
+#ax.plot(v, dist_v1, linestyle="--")
+#fig.tight_layout()
+#plt.show()
 
 # OK, so. We've done one iteration. However, where previously we were able to assume independence between the three variables v0,w0 and u0, 
 # we cannot say the same of v1,w1, and u1. Hopefully, we can just adjust for that in the second iteration then all subsequent iterations
@@ -861,7 +880,7 @@ miind_marginal_w = cj.newDist([-1.0], [26.0], [100], [a for a in np.zeros(100)])
 miind_marginal_u = cj.newDist([-5.0], [55.0], [100], [a for a in np.zeros(100)])
 
 # Lets try 10 iterations
-for i in range(100):
+for iteration in range(100000):
 
     # Calculate v'
 
@@ -977,60 +996,105 @@ for i in range(100):
     cj.joint2Di(v2, w2, joint_v2_w2)
 
     # Record distributions if you wish here.
-    # Also run the monte carlo simulation 
 
-    for nn in range(len(mc_neurons)):
-        mc_neurons[nn] = cond(mc_neurons[nn])
-        if (mc_neurons[nn][0] > -50.0):
-            mc_neurons[nn][0] = -70.6
-
-        mc_neurons[nn][1] = norm.rvs(13.0, 0.4, 1)[0] # override w
-
-    dist_v = cj.readDist(v0)
-    dist_w = cj.readDist(w0)
-    dist_u = cj.readDist(u0)
-
-    # Also run the MIIND (Redux) simulation
-
-    cj.step()
-    #rates1 = rates1 + [cj.readRates()[0]*1000]
-    mass = cj.readMass(pop3)
+    if show_monte_carlo:
+        # Also run the monte carlo simulation 
     
-    cj.update(miind_mass_grid, [a for a in mass])
+        for nn in range(len(mc_neurons)):
+            mc_neurons[nn] = cond(mc_neurons[nn])
+            if (mc_neurons[nn][0] > -50.0):
+                mc_neurons[nn][0] = -70.6
 
-    cj.marginal(miind_mass_grid, 2, miind_marginal_vw)
-    cj.marginal(miind_mass_grid, 1, miind_marginal_vu)
-    cj.marginal(miind_marginal_vw, 1, miind_marginal_v)
-    cj.marginal(miind_marginal_vw, 0, miind_marginal_w)
-    cj.marginal(miind_marginal_vu, 0, miind_marginal_u)
+            mc_neurons[nn][1] = norm.rvs(13.0, 0.4, 1)[0] # override w
 
-    miind_dist_v = cj.readDist(miind_marginal_v)
-    miind_dist_w = cj.readDist(miind_marginal_w)
-    miind_dist_u = cj.readDist(miind_marginal_u)
+    if show_miind_redux:
+        # Also run the MIIND (Redux) simulation
 
-    miind_dist_v = [a / (40.0/100) for a in miind_dist_v]
-    miind_dist_w = [a / (26.0/100) for a in miind_dist_w]
-    miind_dist_u = [a / (55.0/100) for a in miind_dist_u]
+        cj.step()
+        #rates1 = rates1 + [cj.readRates()[0]*1000]
+        mass = cj.readMass(pop3)
+    
+        cj.update(miind_mass_grid, [a for a in mass])
+
+        cj.marginal(miind_mass_grid, 2, miind_marginal_vw)
+        cj.marginal(miind_mass_grid, 1, miind_marginal_vu)
+        cj.marginal(miind_marginal_vw, 1, miind_marginal_v)
+        cj.marginal(miind_marginal_vw, 0, miind_marginal_w)
+        cj.marginal(miind_marginal_vu, 0, miind_marginal_u)
+
+        miind_dist_v = cj.readDist(miind_marginal_v)
+        miind_dist_w = cj.readDist(miind_marginal_w)
+        miind_dist_u = cj.readDist(miind_marginal_u)
+
+        miind_dist_v = [a / (40.0/100) for a in miind_dist_v]
+        miind_dist_w = [a / (26.0/100) for a in miind_dist_w]
+        miind_dist_u = [a / (55.0/100) for a in miind_dist_u]
+
+    if show_miind_orig:
+        # Read densities from MIIND (Original)
+
+        # Load the LIF density
+        density = sim.getDensityByNodeName("RG_E")
+
+        # Not used but Useful for identifying times and files
+        density_fnames = density.fnames
+
+        times  = [ float(os.path.basename(x).split('_')[2]) for x in density_fnames]
+        # Get the specific file for the required time
+        idx = times.index(int(10000*iteration*0.0001)/10000)
+  
+        # Read the raw mass values
+        density_vals, coords = tools.read_density(density_fnames[idx])
+   
+        # Again, perhaps we can use the new code to get the right 
+
+        cj.update(miind_mass_grid, [a for a in density_vals])
+
+        cj.marginal(miind_mass_grid, 2, miind_marginal_vw)
+        cj.marginal(miind_mass_grid, 1, miind_marginal_vu)
+        cj.marginal(miind_marginal_vw, 1, miind_marginal_v)
+        cj.marginal(miind_marginal_vw, 0, miind_marginal_w)
+        cj.marginal(miind_marginal_vu, 0, miind_marginal_u)
+
+        miind_orig_dist_v = cj.readDist(miind_marginal_v)
+        miind_orig_dist_w = cj.readDist(miind_marginal_w)
+        miind_orig_dist_u = cj.readDist(miind_marginal_u)
+
+        miind_orig_dist_v = [a / (40.0/100) for a in miind_orig_dist_v]
+        miind_orig_dist_w = [a / (26.0/100) for a in miind_orig_dist_w]
+        miind_orig_dist_u = [a / (55.0/100) for a in miind_orig_dist_u]
 
     # The monte carlo hist function gives density not mass (booo)
     # so let's just convert to density here
+    
+    if (iteration % 1000 == 0) :
+        dist_v = cj.readDist(v0)
+        dist_w = cj.readDist(w0)
+        dist_u = cj.readDist(u0)
 
-    dist_v = [a / (40.0/v_res) for a in dist_v]
-    dist_w = [a / (26.0/w_res) for a in dist_w]
-    dist_u = [a / (55.0/u_res) for a in dist_u]
+        dist_v = [a / (40.0/v_res) for a in dist_v]
+        dist_w = [a / (26.0/w_res) for a in dist_w]
+        dist_u = [a / (55.0/u_res) for a in dist_u]
 
-    fig, ax = plt.subplots(2,2)
-    ax[0,0].plot(v, dist_v)
-    ax[0,0].hist(mc_neurons[:,0], density=True, bins=v_res, range=[-80.0,-40.0], histtype='step')
-    ax[0,0].plot(np.linspace(-80.0,-40.0,100), miind_dist_v)
-    ax[0,1].plot(w, dist_w)
-    ax[0,1].hist(mc_neurons[:,1], density=True, bins=w_res, range=[-1.0,25.0], histtype='step')
-    ax[0,1].plot(np.linspace(-1.0,25.0,100), miind_dist_w)
-    ax[1,0].plot(u, dist_u)
-    ax[1,0].hist(mc_neurons[:,2], density=True, bins=u_res, range=[-5.0,50.0], histtype='step')
-    ax[1,0].plot(np.linspace(-5.0,55.0,100), miind_dist_u)
-    fig.tight_layout()
-    plt.show()
+        fig, ax = plt.subplots(2,2)
+        ax[0,0].plot(v, dist_v)
+        ax[0,1].plot(w, dist_w)
+        ax[1,0].plot(u, dist_u)
+        if show_monte_carlo:
+            ax[0,0].hist(mc_neurons[:,0], density=True, bins=v_res, range=[-80.0,-40.0], histtype='step')
+            ax[0,1].hist(mc_neurons[:,1], density=True, bins=w_res, range=[-1.0,25.0], histtype='step')
+            ax[1,0].hist(mc_neurons[:,2], density=True, bins=u_res, range=[-5.0,50.0], histtype='step')
+        if show_miind_redux:
+            ax[0,0].plot(np.linspace(-80.0,-40.0,100), miind_dist_v)
+            ax[0,1].plot(np.linspace(-1.0,25.0,100), miind_dist_w)
+            ax[1,0].plot(np.linspace(-5.0,55.0,100), miind_dist_u)
+        if show_miind_orig:
+            ax[0,0].plot(np.linspace(-80.0,-40.0,100), miind_orig_dist_v)
+            ax[0,1].plot(np.linspace(-1.0,25.0,100), miind_orig_dist_w)
+            ax[1,0].plot(np.linspace(-5.0,55.0,100), miind_orig_dist_u)
+    
+        fig.tight_layout()
+        plt.show()
 
     # Transfer v1,w1,u1 -> v0,w0,u0, transfer v2,w2,u2 -> v1,w1,u1
     cj.transfer(v1,v0)
