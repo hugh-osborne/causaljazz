@@ -191,11 +191,32 @@ CudaGrid CudaGridGenerator::generateCudaGridFromFunction(std::vector<double> _ba
 
         std::vector<double> conditional_flattened(_res[0]*_res[1]*output_res);
 
-        for (unsigned int b = 0; b < _res[1]; b++) {
-            for (unsigned int a = 0; a < _res[0]; a++) {
+        for (unsigned int b = 0; b < _res[1]-1; b++) {
+            for (unsigned int a = 0; a < _res[0]-1; a++) {
                 // Each point gets flattened to two cells in the out distribution
-                double hi_value = results[b][a] + (out_cell_width / 2.0);
-                double lo_value = results[b][a] - (out_cell_width / 2.0);
+                double val_max = results[b][a];
+                double val_min = results[b][a];
+
+                if (val_max < results[b + 1][a])
+                    val_max = results[b + 1][a];
+
+                if (val_max < results[b][a + 1])
+                    val_max = results[b][a + 1];
+
+                if (val_max < results[b + 1][a + 1])
+                    val_max = results[b + 1][a + 1];
+
+                if (val_min > results[b + 1][a])
+                    val_min = results[b + 1][a];
+
+                if (val_min > results[b][a + 1])
+                    val_min = results[b][a + 1];
+
+                if (val_min > results[b + 1][a + 1])
+                    val_min = results[b + 1][a + 1];
+
+                double hi_value = val_max;
+                double lo_value = val_min;
 
                 double hi_shifted = (hi_value - out_base) / out_cell_width;
                 double lo_shifted = (lo_value - out_base) / out_cell_width;
@@ -203,7 +224,7 @@ CudaGrid CudaGridGenerator::generateCudaGridFromFunction(std::vector<double> _ba
                 int hi_out_cell = int(hi_shifted);
                 int lo_out_cell = int(lo_shifted);
 
-                double hi_out_prop = hi_shifted - hi_out_cell;
+                double hi_out_prop = ((hi_shifted - hi_out_cell) * out_cell_width) / (val_max - val_min);
                 double lo_out_prop = 1.0 - hi_out_prop;
 
                 if (hi_out_cell >= (int)output_res)
@@ -356,11 +377,33 @@ CudaGrid CudaGridGenerator::generateCudaGridFromFunction(std::vector<double> _ba
 
         std::vector<double> conditional_flattened(_res[0] * _res[1] * output_res);
 
-        for (unsigned int b = 0; b < _res[1]; b++) {
-            for (unsigned int a = 0; a < _res[0]; a++) {
+        for (unsigned int b = 0; b < _res[1]-1; b++) {
+            for (unsigned int a = 0; a < _res[0]-1; a++) {
                 // Each point gets flattened to two cells in the out distribution
-                double hi_value = results[b][a] + (out_cell_width / 2.0);
-                double lo_value = results[b][a] - (out_cell_width / 2.0);
+
+                double val_max = results[b][a];
+                double val_min = results[b][a];
+
+                if (val_max < results[b + 1][a])
+                    val_max = results[b + 1][a];
+
+                if (val_max < results[b][a + 1])
+                    val_max = results[b][a + 1];
+
+                if (val_max < results[b + 1][a + 1])
+                    val_max = results[b + 1][a + 1];
+
+                if (val_min > results[b + 1][a])
+                    val_min = results[b + 1][a];
+
+                if (val_min > results[b][a + 1])
+                    val_min = results[b][a + 1];
+
+                if (val_min > results[b + 1][a + 1])
+                    val_min = results[b + 1][a + 1];
+
+                double hi_value = val_max;
+                double lo_value = val_min;
 
                 double hi_shifted = (hi_value - out_base) / out_cell_width;
                 double lo_shifted = (lo_value - out_base) / out_cell_width;
@@ -368,23 +411,42 @@ CudaGrid CudaGridGenerator::generateCudaGridFromFunction(std::vector<double> _ba
                 int hi_out_cell = int(hi_shifted);
                 int lo_out_cell = int(lo_shifted);
 
-                double hi_out_prop = hi_shifted - hi_out_cell;
-                double lo_out_prop = 1.0 - hi_out_prop;
+                double check = 0.0;
 
-                if (hi_out_cell >= (int)output_res) 
-                    hi_out_cell = (int)output_res - 1;
-                if (lo_out_cell >= (int)output_res)
-                    lo_out_cell = (int)output_res - 1;
-                if (hi_out_cell < 0)
-                    hi_out_cell = 0;
-                if (lo_out_cell < 0)
-                    lo_out_cell = 0;
+                unsigned int desired_out_cell = lo_out_cell;
 
-                unsigned int hi_cell_id = a + (_res[0] * b) + (hi_out_cell * _res[0] * _res[1]);
-                unsigned int lo_cell_id = a + (_res[0] * b) + (lo_out_cell * _res[0] * _res[1]);
+                double prop = (((lo_out_cell + 1) - lo_shifted) * out_cell_width) / (val_max - val_min);
+                if (desired_out_cell >= (int)output_res)
+                    desired_out_cell = (int)output_res - 1;
+                if (desired_out_cell < 0)
+                    desired_out_cell = 0;
+                unsigned int lo_cell_id = a + (_res[0] * b) + (desired_out_cell * _res[0] * _res[1]);
+                conditional_flattened[lo_cell_id] += prop;
+                check += prop;
 
-                conditional_flattened[hi_cell_id] += hi_out_prop;
-                conditional_flattened[lo_cell_id] += lo_out_prop;
+                for (unsigned int c = lo_out_cell+1; c < hi_out_cell; c++) {
+                    desired_out_cell = c;
+                    if (desired_out_cell >= (int)output_res)
+                        desired_out_cell = (int)output_res - 1;
+                    if (desired_out_cell < 0)
+                        desired_out_cell = 0;
+                    unsigned int lo_cell_id = a + (_res[0] * b) + (desired_out_cell * _res[0] * _res[1]);
+                    conditional_flattened[lo_cell_id] += out_cell_width / (val_max - val_min);
+                    check += prop;
+                }
+
+                desired_out_cell = hi_out_cell;
+                prop = ((hi_shifted - hi_out_cell) * out_cell_width) / (val_max - val_min);
+                if (desired_out_cell >= (int)output_res)
+                    desired_out_cell = (int)output_res - 1;
+                if (desired_out_cell < 0)
+                    desired_out_cell = 0;
+                unsigned int hi_cell_id = a + (_res[0] * b) + (desired_out_cell * _res[0] * _res[1]);
+                conditional_flattened[hi_cell_id] += prop;
+                check += prop;
+
+                if (check < 0.9999 || check > 1.0001)
+                    std::cout << " uh oh" << check << ".\n";
             }
         }
 

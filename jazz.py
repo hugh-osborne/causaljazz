@@ -5,6 +5,7 @@ import numpy.random as random
 import matplotlib.pyplot as plt
 import time
 from scipy.stats import norm
+from scipy.stats import poisson
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.cm as cm
 
@@ -429,7 +430,7 @@ def cond(y):
     E_i = -75
     C = 281
     g_l = 0.03
-    tau_e = 2.728
+    tau_e =10.49
     tau_i = 10.49
 
     v = y[0]
@@ -449,34 +450,36 @@ def cond_diff(y):
     E_i = -75
     C = 281
     g_l = 0.03
-    tau_e = 2.728
-    tau_i = 10.49
+    tau_e = 10.49
+    tau_i =10.49
 
     v = y[0]
     w = y[1]
     u = y[2]
 
     v_prime = (-g_l*(v - E_l) - w * (v - E_e) - u * (v - E_i)) / C
-    w_prime = 0.0
-    u_prime = 0.0
+    w_prime = -(w) / tau_e
+    u_prime = -(u) / tau_i
 
     return [v_prime, w_prime, u_prime]
 
 def w_prime(y):
     w = y[0]
-    tau_e = 2.728
+    jump = y[1]
+    tau_e =10.49
     dt = 0.1
 
     w_prime = -(w) / tau_e
-    return w + dt*w_prime
+    return w + (dt*w_prime) + jump
 
 def u_prime(y):
     u = y[0]
+    jump = y[1]
     tau_i = 10.49
     dt = 0.1
 
     u_prime = -(u) / tau_i
-    return u + dt*u_prime
+    return u + (dt*u_prime) + jump
 
 def vw(y):
     v = y[0]
@@ -517,6 +520,7 @@ res = 100
 v_res = 100
 w_res = 100
 u_res = 100
+I_res = 100
 
 v_max = -40.0
 v_min = -80.0
@@ -544,8 +548,8 @@ for x in range(u_res):
 # Unfortunately stats.norm doesn't provide a nice pmf approximation of the pdf. 
 # So let's just do that ourselves without breaking our backs by multiplying across by the discretisation width and normalising
 vpdf = [a * ((v_max-v_min)/v_res) for a in norm.pdf(v, -70.6, 0.1)]
-wpdf = [a * ((w_max-w_min)/w_res) for a in norm.pdf(w, 5.0, 0.1)]
-updf = [a * ((u_max-u_min)/u_res) for a in norm.pdf(u, 5.1, 0.1)]
+wpdf = [a * ((w_max-w_min)/w_res) for a in norm.pdf(w, 0.0, 0.1)]
+updf = [a * ((u_max-u_min)/u_res) for a in norm.pdf(u, 0.0, 0.1)]
 
 vpdf = [a / sum(vpdf) for a in vpdf]
 wpdf = [a / sum(wpdf) for a in wpdf]
@@ -555,14 +559,36 @@ v0 = cj.newDist([v_min],[(v_max-v_min)],[v_res],[a for a in vpdf])
 w0 = cj.newDist([w_min],[(w_max-w_min)],[w_res],[a for a in wpdf])
 u0 = cj.newDist([u_min],[(u_max-u_min)],[u_res],[a for a in updf])
 
+# Poisson inputs
+
+w_rate = 1
+epsp = 1.0
+wI_event_range = 10
+wI_max = wI_event_range*epsp
+wI_min = 0.0
+epsps = np.linspace(0.0, wI_max, I_res)
+wIpdf = [poisson.pmf(wI_event_range*(a/I_res), w_rate*0.1) for a in range(I_res)]
+wI = cj.newDist([wI_min], [wI_max], [I_res], [a for a in wIpdf])
+
+u_rate = 1
+ipsp = 1.0
+uI_event_range = 10
+uI_max = uI_event_range*ipsp
+uI_min = 0.0
+ipsps = np.linspace(0.0, uI_max, I_res)
+uIpdf = [poisson.pmf(uI_event_range*(a/I_res), u_rate*0.1) for a in range(I_res)]
+uI = cj.newDist([uI_min], [uI_max], [I_res], [a for a in uIpdf])
+
 # Initialise the monte carlo neurons
-mc_neurons = np.array([[norm.rvs(-70.6, 0.1, 1)[0],norm.rvs(5.0, 0.5, 1)[0],norm.rvs(5.1, 0.5, 1)[0]] for a in range(5000)])
+mc_neurons = np.array([[norm.rvs(-70.6, 0.1, 1)[0],norm.rvs(0.0, 0.1, 1)[0],norm.rvs(0.0, 0.1, 1)[0]] for a in range(5000)])
 
 # Initialise the MIIND (Redux) simulation
-miind_cond_grid = cj.generate(cond_diff,  [v_min,w_min,u_min], [(v_max-v_min),(w_max-w_min),(u_max-u_min)], [100,100,100], -50, -70.6, [0,0,0], 0.1)
+miind_cond_grid = cj.generate(cond_diff,  [v_min,w_min,u_min], [(v_max-v_min),(w_max-w_min),(u_max-u_min)], [v_res,w_res,u_res], -50, -70.6, [0,0,0], 0.1)
 cj.init(0.1, False)
 
-pop3 = cj.addPopulation(miind_cond_grid, [-70.6, 5.0, 5.1], 0.0, False)
+pop3 = cj.addPopulation(miind_cond_grid, [-70.6, 0.0, 0.0], 0.0, False)
+miind_ex = cj.poisson(pop3, [0,1.0,0])
+miind_in = cj.poisson(pop3, [0,0,1.0])
 
 # Read MIIND (ORiginal) simulation (performed elsehwere)
 
@@ -570,8 +596,8 @@ sim = api.MiindSimulation("cond3D.xml")
 
 ######
 
-c_w_prime = cj.boundedFunction([w_min],[(w_max-w_min)],[w_res], w_prime, w_min, (w_max-w_min), w_res)
-c_u_prime = cj.boundedFunction([u_min],[(u_max-u_min)],[u_res], u_prime, u_min, (u_max-u_min), u_res)
+c_w_prime = cj.boundedFunction([w_min,wI_min],[(w_max-w_min),wI_max],[w_res,I_res], w_prime, w_min, (w_max-w_min), w_res)
+c_u_prime = cj.boundedFunction([u_min,uI_min],[(u_max-u_min),uI_max],[u_res,I_res], u_prime, u_min, (u_max-u_min), u_res)
 c_vw = cj.function([v_min,w_min],[(v_max-v_min),(w_max-w_min)],[v_res,w_res], vw, res)
 c_vu = cj.function([v_min,u_min],[(v_max-v_min),(u_max-u_min)],[v_res,u_res], vu, res)
 
@@ -582,20 +608,42 @@ c_vwvu = cj.function([cj.base(c_vw)[2],cj.base(c_vu)[2]],[cj.size(c_vw)[2],cj.si
 
 c_v_prime = cj.boundedFunction([v_min,cj.base(c_vwvu)[2]],[(v_max-v_min),cj.size(c_vwvu)[2]],[v_res,res],v_prime, v_min, (v_max-v_min), v_res)
 
-# w1 and u1 are easy to calculate - they're just chains
+# w1 and u1 are easy to calculate
 print("w1 and u1 are easy to calculate - they're just chains.")
 
-w0w1 = cj.newDist([w_min,w_min],[(w_max-w_min),(w_max-w_min)],[w_res,w_res],[a for a in np.zeros(w_res*w_res)])
-u0u1 = cj.newDist([u_min,u_min],[(u_max-u_min),(u_max-u_min)],[u_res,u_res],[a for a in np.zeros(u_res*u_res)])
+joint_w0_wI_w1 = cj.newDist([w_min,wI_min,w_min],[(w_max-w_min),wI_max,(w_max-w_min)],[w_res,I_res,w_res],[a for a in np.zeros(w_res*I_res*w_res)])
+joint_u0_uI_u1 = cj.newDist([u_min,uI_min,u_min],[(u_max-u_min),uI_max,(u_max-u_min)],[u_res,I_res,u_res],[a for a in np.zeros(u_res*I_res*u_res)])
+joint_w0_wI = cj.newDist([w_min,wI_min],[(w_max-w_min),wI_max],[w_res,I_res],[a for a in np.zeros(w_res*I_res)])
+joint_u0_uI = cj.newDist([u_min,uI_min],[(u_max-u_min),uI_max],[u_res,I_res],[a for a in np.zeros(u_res*I_res)])
 
-cj.joint2D(w0, 0, c_w_prime, w0w1)
-cj.joint2D(u0, 0, c_u_prime, u0u1)
+# w and wI and u and uI are independent so just build the joint distribution by multiplying
+cj.joint2Di(w0, wI, joint_w0_wI)
+cj.joint2Di(u0, uI, joint_u0_uI)
 
+cj.collider(joint_w0_wI, [0,1], c_w_prime, joint_w0_wI_w1)
+cj.collider(joint_u0_uI, [0,1], c_u_prime, joint_u0_uI_u1)
+
+marginal_wI_w1 = cj.newDist([wI_min,w_min],[wI_max,(w_max-w_min)],[I_res,w_res],[a for a in np.zeros(I_res*w_res)])
+marginal_uI_u1 = cj.newDist([uI_min,u_min],[uI_max,(u_max-u_min)],[I_res,u_res],[a for a in np.zeros(I_res*u_res)])
 w1 = cj.newDist([w_min],[(w_max-w_min)],[w_res],[a for a in np.zeros(w_res)])
 u1 = cj.newDist([u_min],[(u_max-u_min)],[u_res],[a for a in np.zeros(u_res)])
 
-cj.marginal(w0w1, 0, w1)
-cj.marginal(u0u1, 0, u1)
+cj.marginal(joint_w0_wI_w1, 0, marginal_wI_w1)
+cj.marginal(joint_u0_uI_u1, 0, marginal_uI_u1)
+
+cj.marginal(marginal_wI_w1, 0, w1)
+cj.marginal(marginal_uI_u1, 0, u1)
+
+# Store the marginal conditional w1|w0 for later when we want to calculate joint w1_v1
+marginal_w0_w1 = cj.newDist([w_min,w_min],[(w_max-w_min),(w_max-w_min)],[w_res,w_res],[a for a in np.zeros(w_res*w_res)])
+marginal_u0_u1 = cj.newDist([u_min,u_min],[(u_max-u_min),(u_max-u_min)],[u_res,u_res],[a for a in np.zeros(u_res*u_res)])
+w1_given_w0 = cj.newDist([w_min,w_min],[(w_max-w_min),(w_max-w_min)],[w_res,w_res],[a for a in np.zeros(w_res*w_res)])
+u1_given_u0 = cj.newDist([u_min,u_min],[(u_max-u_min),(u_max-u_min)],[u_res,u_res],[a for a in np.zeros(u_res*u_res)])
+
+cj.marginal(joint_w0_wI_w1, 1, marginal_w0_w1)
+cj.marginal(joint_u0_uI_u1, 1, marginal_u0_u1)
+cj.conditional(marginal_w0_w1, [0], w0, w1_given_w0)
+cj.conditional(marginal_u0_u1, [0], u0, u1_given_u0)
 
 #dist_w0 = cj.readDist(w0)
 #dist_w1 = cj.readDist(w1)
@@ -857,8 +905,8 @@ joint_u0_v1_u1 = cj.newDist([u_min,v_min,u_min],[(u_max-u_min),(v_max-v_min),(u_
 joint_v1_w1 = cj.newDist([v_min,w_min],[(v_max-v_min),(w_max-w_min)],[v_res,w_res], [a for a in np.zeros(v_res*w_res)])
 joint_v1_u1 = cj.newDist([v_min,u_min],[(v_max-v_min),(u_max-u_min)],[v_res,u_res], [a for a in np.zeros(v_res*u_res)])
 
-cj.fork(w0, 0, v1_given_w0, 0, c_w_prime, joint_w0_v1_w1)
-cj.fork(u0, 0, v1_given_u0, 0, c_u_prime, joint_u0_v1_u1)
+cj.fork(w0, 0, v1_given_w0, 0, w1_given_w0, joint_w0_v1_w1)
+cj.fork(u0, 0, v1_given_u0, 0, u1_given_u0, joint_u0_v1_u1)
 
 cj.marginal(joint_w0_v1_w1, 0, joint_v1_w1)
 cj.marginal(joint_u0_v1_u1, 0, joint_v1_u1)
@@ -882,12 +930,12 @@ joint_v2_u2 = cj.newDist([v_min,u_min],[(v_max-v_min),(u_max-u_min)],[v_res,u_re
 cj.start()
 
 # We can use causal jazz distributions to read and manage distributions from the MIIND redux simulation. Nice!
-miind_mass_grid = cj.newDist([v_min,w_min,u_min], [(v_max-v_min),(w_max-w_min),(u_max-u_min)], [100,100,100], [a for a in np.zeros(100*100*100)])
-miind_marginal_vw = cj.newDist([v_min,w_min], [(v_max-v_min),(w_max-w_min)], [100,100], [a for a in np.zeros(100*100)])
-miind_marginal_vu = cj.newDist([v_min,u_min], [(v_max-v_min),(u_max-u_min)], [100,100], [a for a in np.zeros(100*100)])
-miind_marginal_v = cj.newDist([v_min], [(v_max-v_min)], [100], [a for a in np.zeros(100)])
-miind_marginal_w = cj.newDist([w_min], [(w_max-w_min)], [100], [a for a in np.zeros(100)])
-miind_marginal_u = cj.newDist([u_min], [(u_max-u_min)], [100], [a for a in np.zeros(100)])
+miind_mass_grid = cj.newDist([v_min,w_min,u_min], [(v_max-v_min),(w_max-w_min),(u_max-u_min)], [v_res,w_res,u_res], [a for a in np.zeros(v_res*w_res*u_res)])
+miind_marginal_vw = cj.newDist([v_min,w_min], [(v_max-v_min),(w_max-w_min)], [v_res,w_res], [a for a in np.zeros(v_res*w_res)])
+miind_marginal_vu = cj.newDist([v_min,u_min], [(v_max-v_min),(u_max-u_min)], [v_res,u_res], [a for a in np.zeros(v_res*u_res)])
+miind_marginal_v = cj.newDist([v_min], [(v_max-v_min)], [v_res], [a for a in np.zeros(v_res)])
+miind_marginal_w = cj.newDist([w_min], [(w_max-w_min)], [w_res], [a for a in np.zeros(w_res)])
+miind_marginal_u = cj.newDist([u_min], [(u_max-u_min)], [u_res], [a for a in np.zeros(u_res)])
 
 # firing rates
 
@@ -965,55 +1013,55 @@ for iteration in range(1000):
 
     cj.marginal(marginal_vwvu_v1, 0, v2) # Now both v2 and vwvu_v1 capture the correct distribution
 
-    # Any deviation from the mass summing to 1.0 and we get some nasty blowup or collapse
-    #Rescale v2 to sum to 1.0
-
-    
 
     # Update joint distributions w'v' and u'v'
-    #cj.marginal(joint_v_w_vw, 0, marginal_w0_vw)
-    #cj.joint3D(marginal_w0_vw, 1, vwvu_given_vw, joint_w0_vw_vwvu)
+    cj.marginal(joint_v_w_vw, 0, marginal_w0_vw)
+    cj.joint3D(marginal_w0_vw, 1, vwvu_given_vw, joint_w0_vw_vwvu)
     
-    #cj.marginal(joint_w0_vw_vwvu, 1, marginal_w0_vwvu)
+    cj.marginal(joint_w0_vw_vwvu, 1, marginal_w0_vwvu)
     
-    #cj.marginal(marginal_vwvu_v1, 1, marginal_vwvu)
+    cj.marginal(marginal_vwvu_v1, 1, marginal_vwvu)
     
-    #cj.conditional(marginal_vwvu_v1, [0], marginal_vwvu, v1_given_vwvu)
+    cj.conditional(marginal_vwvu_v1, [0], marginal_vwvu, v1_given_vwvu)
     
-    #cj.joint3D(marginal_w0_vwvu, 1, v1_given_vwvu, joint_w0_vwvu_v1)
-    #cj.marginal(joint_w0_vwvu_v1, 1, marginal_w0_v1)
-    #cj.conditional(marginal_w0_v1, [0], w1, v1_given_w0)
+    cj.joint3D(marginal_w0_vwvu, 1, v1_given_vwvu, joint_w0_vwvu_v1)
+    cj.marginal(joint_w0_vwvu_v1, 1, marginal_w0_v1)
+    cj.conditional(marginal_w0_v1, [0], w1, v1_given_w0)
     
-    #cj.marginal(joint_v_u_vu, 0, marginal_u0_vu)
-    #cj.joint3D(marginal_u0_vu, 1, vwvu_given_vu, joint_u0_vu_vwvu)
+    cj.marginal(joint_v_u_vu, 0, marginal_u0_vu)
+    cj.joint3D(marginal_u0_vu, 1, vwvu_given_vu, joint_u0_vu_vwvu)
     
-    #cj.marginal(joint_u0_vu_vwvu, 1, marginal_u0_vwvu)
+    cj.marginal(joint_u0_vu_vwvu, 1, marginal_u0_vwvu)
     
-    #cj.joint3D(marginal_u0_vwvu, 1, v1_given_vwvu, joint_u0_vwvu_v1)
-    #cj.marginal(joint_u0_vwvu_v1, 1, marginal_u0_v1)
-    #cj.conditional(marginal_u0_v1, [0], u1, v1_given_u0)
-    
-    #cj.fork(w1, 0, v1_given_w0, 0, c_w_prime, joint_w0_v1_w1)
-    #cj.fork(u1, 0, v1_given_u0, 0, c_u_prime, joint_u0_v1_u1)
+    cj.joint3D(marginal_u0_vwvu, 1, v1_given_vwvu, joint_u0_vwvu_v1)
+    cj.marginal(joint_u0_vwvu_v1, 1, marginal_u0_v1)
+    cj.conditional(marginal_u0_v1, [0], u1, v1_given_u0)
 
-    #cj.marginal(joint_w0_v1_w1, 0, joint_v2_w2)
-    #cj.marginal(joint_u0_v1_u1, 0, joint_v2_u2)
+    # Update w and u based on input
 
-    ## Calculate w2 and u2 from the marginals of joint_v2_w2 and joint_v2_u2
+    # w and wI and u and uI are independent so just build the joint distribution by multiplying
+    cj.joint2Di(w1, wI, joint_w0_wI)
+    cj.joint2Di(u1, uI, joint_u0_uI)
+    
+    cj.collider(joint_w0_wI, [0,1], c_w_prime, joint_w0_wI_w1)
+    cj.collider(joint_u0_uI, [0,1], c_u_prime, joint_u0_uI_u1)
 
-    #cj.marginal(joint_v2_w2, 0, w2)
-    #cj.marginal(joint_v2_u2, 0, u2)
+    # Store the marginal conditional w1|w0 for later when we want to calculate joint w1_v1
 
-    # We want to intervene and keep w2 at a high level. By doing so,
-    # w2 and v2 are now independent, so joint_v2_w2 must be updated as well
+    cj.marginal(joint_w0_wI_w1, 1, marginal_w0_w1)
+    cj.marginal(joint_u0_uI_u1, 1, marginal_u0_u1)
+    cj.marginal(marginal_w0_w1, 0, w2)
+    cj.marginal(marginal_u0_u1, 0, u2)
+    cj.conditional(marginal_w0_w1, [0], w1, w1_given_w0)
+    cj.conditional(marginal_u0_u1, [0], u1, u1_given_u0)
 
-    # Set new w2
-    cj.update(w2, wpdf)
-    cj.update(u2, updf)
+    ######
+    
+    cj.fork(w1, 0, v1_given_w0, 0, w1_given_w0, joint_w0_v1_w1)
+    cj.fork(u1, 0, v1_given_u0, 0, u1_given_u0, joint_u0_v1_u1)
 
-    # Set new joint v2 w2
-    cj.joint2Di(v2, w2, joint_v2_w2)
-    cj.joint2Di(v2, u2, joint_v2_u2)
+    cj.marginal(joint_w0_v1_w1, 0, joint_v2_w2)
+    cj.marginal(joint_u0_v1_u1, 0, joint_v2_u2)
 
     # Record distributions if you wish here.
 
@@ -1023,17 +1071,20 @@ for iteration in range(1000):
         fired_count = 0
         for nn in range(len(mc_neurons)):
             mc_neurons[nn] = cond(mc_neurons[nn])
+
             if (mc_neurons[nn][0] > -50.0):
                 mc_neurons[nn][0] = -70.6
                 fired_count+=1
 
-            mc_neurons[nn][1] = norm.rvs(5.0, 0.1, 1)[0] # override w
-            mc_neurons[nn][2] = norm.rvs(5.1, 0.1, 1)[0] # override u
+            mc_neurons[nn][1] += epsp*poisson.rvs(w_rate*0.1) # override w
+            mc_neurons[nn][2] += ipsp*poisson.rvs(u_rate*0.1) # override u
 
         monte_carlo_rates = monte_carlo_rates + [(fired_count / len(mc_neurons)) / 0.0001]
 
     if show_miind_redux:
         # Also run the MIIND (Redux) simulation
+        cj.postRate(pop3, miind_ex, w_rate)
+        cj.postRate(pop3, miind_in, u_rate)
 
         cj.step()
         #rates1 = rates1 + [cj.readRates()[0]*1000]
@@ -1052,9 +1103,9 @@ for iteration in range(1000):
         miind_dist_w = cj.readDist(miind_marginal_w)
         miind_dist_u = cj.readDist(miind_marginal_u)
 
-        miind_dist_v = [a / ((v_max-v_min)/100) for a in miind_dist_v]
-        miind_dist_w = [a / ((w_max-w_min)/100) for a in miind_dist_w]
-        miind_dist_u = [a / ((u_max-u_min)/100) for a in miind_dist_u]
+        miind_dist_v = [a / ((v_max-v_min)/v_res) for a in miind_dist_v]
+        miind_dist_w = [a / ((w_max-w_min)/w_res) for a in miind_dist_w]
+        miind_dist_u = [a / ((u_max-u_min)/u_res) for a in miind_dist_u]
 
     if show_miind_orig:
         # Read densities from MIIND (Original)
@@ -1111,9 +1162,9 @@ for iteration in range(1000):
             ax[0,1].hist(mc_neurons[:,1], density=True, bins=w_res, range=[w_min,w_max], histtype='step')
             ax[1,0].hist(mc_neurons[:,2], density=True, bins=u_res, range=[u_min,u_max], histtype='step')
         if show_miind_redux:
-            ax[0,0].plot(np.linspace(v_min,v_max,100), miind_dist_v)
-            ax[0,1].plot(np.linspace(w_min,w_max,100), miind_dist_w)
-            ax[1,0].plot(np.linspace(u_min,u_max,100), miind_dist_u)
+            ax[0,0].plot(np.linspace(v_min,v_max,v_res), miind_dist_v)
+            ax[0,1].plot(np.linspace(w_min,w_max,w_res), miind_dist_w)
+            ax[1,0].plot(np.linspace(u_min,u_max,u_res), miind_dist_u)
         if show_miind_orig:
             ax[0,0].plot(np.linspace(v_min,v_max,100), miind_orig_dist_v)
             ax[0,1].plot(np.linspace(w_min,w_max,100), miind_orig_dist_w)
@@ -1121,6 +1172,12 @@ for iteration in range(1000):
     
         fig.tight_layout()
         plt.show()
+
+    cj.rescale(v2)
+    cj.rescale(w2)
+    cj.rescale(u2)
+    cj.rescale(joint_v2_w2)
+    cj.rescale(joint_v2_u2)
 
     # Transfer v1,w1,u1 -> v0,w0,u0, transfer v2,w2,u2 -> v1,w1,u1
     cj.transfer(v1,v0)
