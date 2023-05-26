@@ -50,7 +50,7 @@ CudaGrid CudaGridGenerator::generateCudaGridFromFunction(std::vector<double> _ba
     if (_base.size() == 1) { // 1D input
         std::vector<double> results(_res[0]);
         for (unsigned int a = 0; a < _res[0]; a++) {
-            double start_point = _base[0] + ((_dims[0] / _res[0]) * (a + 0.5));
+            double start_point = _base[0] + ((_dims[0] / _res[0]) * (a));
 
             // Build the list of values for the starting point to be sent to the python function
             PyObject* point_coord_list = PyList_New((Py_ssize_t)(1));
@@ -139,8 +139,8 @@ CudaGrid CudaGridGenerator::generateCudaGridFromFunction(std::vector<double> _ba
             std::vector<double> resrow(_res[0]);
             for (unsigned int a = 0; a < _res[0]; a++) {
                 std::vector<double> start_point(2);
-                start_point[0] = start_point[0] = _base[0] + ((_dims[0] / _res[0]) * (a + 0.5));
-                start_point[1] = _base[1] + ((_dims[1] / _res[1]) * (b + 0.5));
+                start_point[0] = _base[0] + ((_dims[0] / _res[0]) * (a));
+                start_point[1] = _base[1] + ((_dims[1] / _res[1]) * (b));
 
                 // Build the list of values for the starting point to be sent to the python function
                 PyObject* point_coord_list = PyList_New((Py_ssize_t)(2));
@@ -192,7 +192,7 @@ CudaGrid CudaGridGenerator::generateCudaGridFromFunction(std::vector<double> _ba
         std::vector<double> conditional_flattened(_res[0]*_res[1]*output_res);
 
         for (unsigned int b = 0; b < _res[1]-1; b++) {
-            for (unsigned int a = 0; a < _res[0]-1; a++) {
+            for (unsigned int a = 0; a < _res[0] - 1; a++) {
                 // Each point gets flattened to two cells in the out distribution
                 double val_max = results[b][a];
                 double val_min = results[b][a];
@@ -224,23 +224,40 @@ CudaGrid CudaGridGenerator::generateCudaGridFromFunction(std::vector<double> _ba
                 int hi_out_cell = int(hi_shifted);
                 int lo_out_cell = int(lo_shifted);
 
-                double hi_out_prop = ((hi_shifted - hi_out_cell) * out_cell_width) / (val_max - val_min);
-                double lo_out_prop = 1.0 - hi_out_prop;
+                if (hi_out_cell == lo_out_cell) {
+                    unsigned int hi_cell_id = a + (_res[0] * b) + (hi_out_cell * _res[0] * _res[1]);
+                    conditional_flattened[hi_cell_id] = 1.0;
+                }
+                else {
+                    unsigned int desired_out_cell = lo_out_cell;
 
-                if (hi_out_cell >= (int)output_res)
-                    hi_out_cell = (int)output_res - 1;
-                if (lo_out_cell >= (int)output_res)
-                    lo_out_cell = (int)output_res - 1;
-                if (hi_out_cell < 0)
-                    hi_out_cell = 0;
-                if (lo_out_cell < 0)
-                    lo_out_cell = 0;
+                    double prop = (((lo_out_cell + 1) * out_cell_width) + out_base - val_min) / (val_max - val_min);
+                    if (desired_out_cell >= (int)output_res)
+                        desired_out_cell = (int)output_res - 1;
+                    if (desired_out_cell < 0)
+                        desired_out_cell = 0;
+                    unsigned int lo_cell_id = a + (_res[0] * b) + (desired_out_cell * _res[0] * _res[1]);
+                    conditional_flattened[lo_cell_id] += prop;
 
-                unsigned int hi_cell_id = a + (_res[0] * b) + (hi_out_cell * _res[0] * _res[1]);
-                unsigned int lo_cell_id = a + (_res[0] * b) + (lo_out_cell * _res[0] * _res[1]);
+                    for (unsigned int c = lo_out_cell + 1; c < hi_out_cell; c++) {
+                        desired_out_cell = c;
+                        if (desired_out_cell >= (int)output_res)
+                            desired_out_cell = (int)output_res - 1;
+                        if (desired_out_cell < 0)
+                            desired_out_cell = 0;
+                        unsigned int lo_cell_id = a + (_res[0] * b) + (desired_out_cell * _res[0] * _res[1]);
+                        conditional_flattened[lo_cell_id] += out_cell_width / (val_max - val_min);
+                    }
 
-                conditional_flattened[hi_cell_id] += hi_out_prop;
-                conditional_flattened[lo_cell_id] += lo_out_prop;
+                    desired_out_cell = hi_out_cell;
+                    prop = (val_max - (hi_out_cell * out_cell_width) - out_base) / (val_max - val_min);
+                    if (desired_out_cell >= (int)output_res)
+                        desired_out_cell = (int)output_res - 1;
+                    if (desired_out_cell < 0)
+                        desired_out_cell = 0;
+                    unsigned int hi_cell_id = a + (_res[0] * b) + (desired_out_cell * _res[0] * _res[1]);
+                    conditional_flattened[hi_cell_id] += prop;
+                }
             }
         }
 
@@ -336,8 +353,8 @@ CudaGrid CudaGridGenerator::generateCudaGridFromFunction(std::vector<double> _ba
             std::vector<double> resrow(_res[0]);
             for (unsigned int a = 0; a < _res[0]; a++) {
                 std::vector<double> start_point(2);
-                start_point[0] = _base[0] + ((_dims[0] / _res[0]) * (a + 0.5));
-                start_point[1] = _base[1] + ((_dims[1] / _res[1]) * (b + 0.5));
+                start_point[0] = _base[0] + ((_dims[0] / _res[0]) * (a));
+                start_point[1] = _base[1] + ((_dims[1] / _res[1]) * (b));
 
                 // Build the list of values for the starting point to be sent to the python function
                 PyObject* point_coord_list = PyList_New((Py_ssize_t)(2));
@@ -411,42 +428,40 @@ CudaGrid CudaGridGenerator::generateCudaGridFromFunction(std::vector<double> _ba
                 int hi_out_cell = int(hi_shifted);
                 int lo_out_cell = int(lo_shifted);
 
-                double check = 0.0;
+                if (hi_out_cell == lo_out_cell) {
+                    unsigned int hi_cell_id = a + (_res[0] * b) + (hi_out_cell * _res[0] * _res[1]);
+                    conditional_flattened[hi_cell_id] = 1.0;
+                }
+                else {
+                    unsigned int desired_out_cell = lo_out_cell;
 
-                unsigned int desired_out_cell = lo_out_cell;
-
-                double prop = (((lo_out_cell + 1) - lo_shifted) * out_cell_width) / (val_max - val_min);
-                if (desired_out_cell >= (int)output_res)
-                    desired_out_cell = (int)output_res - 1;
-                if (desired_out_cell < 0)
-                    desired_out_cell = 0;
-                unsigned int lo_cell_id = a + (_res[0] * b) + (desired_out_cell * _res[0] * _res[1]);
-                conditional_flattened[lo_cell_id] += prop;
-                check += prop;
-
-                for (unsigned int c = lo_out_cell+1; c < hi_out_cell; c++) {
-                    desired_out_cell = c;
+                    double prop = (((lo_out_cell + 1) * out_cell_width) + out_base - val_min) / (val_max - val_min);
                     if (desired_out_cell >= (int)output_res)
                         desired_out_cell = (int)output_res - 1;
                     if (desired_out_cell < 0)
                         desired_out_cell = 0;
                     unsigned int lo_cell_id = a + (_res[0] * b) + (desired_out_cell * _res[0] * _res[1]);
-                    conditional_flattened[lo_cell_id] += out_cell_width / (val_max - val_min);
-                    check += prop;
+                    conditional_flattened[lo_cell_id] += prop;
+
+                    for (unsigned int c = lo_out_cell + 1; c < hi_out_cell; c++) {
+                        desired_out_cell = c;
+                        if (desired_out_cell >= (int)output_res)
+                            desired_out_cell = (int)output_res - 1;
+                        if (desired_out_cell < 0)
+                            desired_out_cell = 0;
+                        unsigned int lo_cell_id = a + (_res[0] * b) + (desired_out_cell * _res[0] * _res[1]);
+                        conditional_flattened[lo_cell_id] += out_cell_width / (val_max - val_min);
+                    }
+
+                    desired_out_cell = hi_out_cell;
+                    prop = (val_max - (hi_out_cell * out_cell_width) - out_base) / (val_max - val_min);
+                    if (desired_out_cell >= (int)output_res)
+                        desired_out_cell = (int)output_res - 1;
+                    if (desired_out_cell < 0)
+                        desired_out_cell = 0;
+                    unsigned int hi_cell_id = a + (_res[0] * b) + (desired_out_cell * _res[0] * _res[1]);
+                    conditional_flattened[hi_cell_id] += prop;
                 }
-
-                desired_out_cell = hi_out_cell;
-                prop = ((hi_shifted - hi_out_cell) * out_cell_width) / (val_max - val_min);
-                if (desired_out_cell >= (int)output_res)
-                    desired_out_cell = (int)output_res - 1;
-                if (desired_out_cell < 0)
-                    desired_out_cell = 0;
-                unsigned int hi_cell_id = a + (_res[0] * b) + (desired_out_cell * _res[0] * _res[1]);
-                conditional_flattened[hi_cell_id] += prop;
-                check += prop;
-
-                if (check < 0.9999 || check > 1.0001)
-                    std::cout << " uh oh" << check << ".\n";
             }
         }
 

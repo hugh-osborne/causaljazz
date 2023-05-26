@@ -430,7 +430,7 @@ def cond(y):
     E_i = -75
     C = 281
     g_l = 0.03
-    tau_e =10.49
+    tau_e =2.728
     tau_i = 10.49
 
     v = y[0]
@@ -450,7 +450,7 @@ def cond_diff(y):
     E_i = -75
     C = 281
     g_l = 0.03
-    tau_e = 10.49
+    tau_e =2.728
     tau_i =10.49
 
     v = y[0]
@@ -466,7 +466,7 @@ def cond_diff(y):
 def w_prime(y):
     w = y[0]
     jump = y[1]
-    tau_e =10.49
+    tau_e =2.728
     dt = 0.1
 
     w_prime = -(w) / tau_e
@@ -516,11 +516,11 @@ def v_prime(y):
 
     return v + dt*v_prime
 
-res = 100
-v_res = 100
-w_res = 100
-u_res = 100
-I_res = 100
+res = 200
+v_res = 200
+w_res = 200
+u_res = 200
+I_res = 200
 
 v_max = -40.0
 v_min = -80.0
@@ -561,22 +561,50 @@ u0 = cj.newDist([u_min],[(u_max-u_min)],[u_res],[a for a in updf])
 
 # Poisson inputs
 
-w_rate = 1
-epsp = 1.0
-wI_event_range = 10
-wI_max = wI_event_range*epsp
-wI_min = 0.0
-epsps = np.linspace(0.0, wI_max, I_res)
-wIpdf = [poisson.pmf(wI_event_range*(a/I_res), w_rate*0.1) for a in range(I_res)]
+w_rate = 20
+epsp = 0.1
+wI_max_events = 10
+wI_min_events = -2
+wI_max = wI_max_events*epsp
+wI_min = wI_min_events*epsp
+epsps = np.linspace(wI_min, wI_max, I_res)
+wI_events = np.linspace(wI_min_events, wI_max_events, I_res)
+wIpdf = [poisson.pmf(a, w_rate*0.1) for a in wI_events]
+wIpdf_final = [0 for a in wI_events]
+for i in range(len(wI_events)-1):
+    if (int(wI_events[i]) < int(wI_events[i+1])) or (wI_events[i] < 0 and wI_events[i+1] >= 0): # we have just passed a new event
+        e = int(wI_events[i+1])
+        if e <= 0:
+            e = int(wI_events[i])
+        diff = wI_events[i+1] - wI_events[i]
+        lower_prop = (int(wI_events[i+1]) - wI_events[i]) / diff 
+        upper_prop = 1.0 - lower_prop
+        wIpdf_final[i] += poisson.pmf(e, w_rate*0.1) * lower_prop
+        wIpdf_final[i+1] += poisson.pmf(e, w_rate*0.1) * upper_prop
+wIpdf = wIpdf_final
 wI = cj.newDist([wI_min], [wI_max], [I_res], [a for a in wIpdf])
 
-u_rate = 1
-ipsp = 1.0
-uI_event_range = 10
-uI_max = uI_event_range*ipsp
-uI_min = 0.0
-ipsps = np.linspace(0.0, uI_max, I_res)
-uIpdf = [poisson.pmf(uI_event_range*(a/I_res), u_rate*0.1) for a in range(I_res)]
+u_rate = 10
+ipsp = 0.1
+uI_max_events = 10
+uI_min_events = -2
+uI_max = wI_max_events*epsp
+uI_min = wI_min_events*epsp
+ipsps = np.linspace(uI_min, uI_max, I_res)
+uI_events = np.linspace(uI_min_events, uI_max_events, I_res)
+uIpdf = [poisson.pmf(a, u_rate*0.1) for a in uI_events]
+uIpdf_final = [0 for a in uI_events]
+for i in range(len(uI_events)-1):
+    if (int(uI_events[i]) < int(uI_events[i+1])) or (uI_events[i] < 0 and uI_events[i+1] >= 0): # we have just passed a new event
+        e = int(uI_events[i+1])
+        if e <= 0:
+            e = int(uI_events[i])
+        diff = uI_events[i+1] - uI_events[i]
+        lower_prop = (int(uI_events[i+1]) - uI_events[i]) / diff 
+        upper_prop = 1.0 - lower_prop
+        uIpdf_final[i] += poisson.pmf(e, u_rate*0.1) * lower_prop
+        uIpdf_final[i+1] += poisson.pmf(e, u_rate*0.1) * upper_prop
+uIpdf = uIpdf_final
 uI = cj.newDist([uI_min], [uI_max], [I_res], [a for a in uIpdf])
 
 # Initialise the monte carlo neurons
@@ -587,8 +615,8 @@ miind_cond_grid = cj.generate(cond_diff,  [v_min,w_min,u_min], [(v_max-v_min),(w
 cj.init(0.1, False)
 
 pop3 = cj.addPopulation(miind_cond_grid, [-70.6, 0.0, 0.0], 0.0, False)
-miind_ex = cj.poisson(pop3, [0,1.0,0])
-miind_in = cj.poisson(pop3, [0,0,1.0])
+miind_ex = cj.poisson(pop3, [0,epsp,0])
+miind_in = cj.poisson(pop3, [0,0,ipsp])
 
 # Read MIIND (ORiginal) simulation (performed elsehwere)
 
@@ -596,8 +624,8 @@ sim = api.MiindSimulation("cond3D.xml")
 
 ######
 
-c_w_prime = cj.boundedFunction([w_min,wI_min],[(w_max-w_min),wI_max],[w_res,I_res], w_prime, w_min, (w_max-w_min), w_res)
-c_u_prime = cj.boundedFunction([u_min,uI_min],[(u_max-u_min),uI_max],[u_res,I_res], u_prime, u_min, (u_max-u_min), u_res)
+c_w_prime = cj.boundedFunction([w_min,wI_min],[(w_max-w_min),(wI_max-wI_min)],[w_res,I_res], w_prime, w_min, (w_max-w_min), w_res)
+c_u_prime = cj.boundedFunction([u_min,uI_min],[(u_max-u_min),(uI_max-uI_min)],[u_res,I_res], u_prime, u_min, (u_max-u_min), u_res)
 c_vw = cj.function([v_min,w_min],[(v_max-v_min),(w_max-w_min)],[v_res,w_res], vw, res)
 c_vu = cj.function([v_min,u_min],[(v_max-v_min),(u_max-u_min)],[v_res,u_res], vu, res)
 
@@ -611,10 +639,10 @@ c_v_prime = cj.boundedFunction([v_min,cj.base(c_vwvu)[2]],[(v_max-v_min),cj.size
 # w1 and u1 are easy to calculate
 print("w1 and u1 are easy to calculate - they're just chains.")
 
-joint_w0_wI_w1 = cj.newDist([w_min,wI_min,w_min],[(w_max-w_min),wI_max,(w_max-w_min)],[w_res,I_res,w_res],[a for a in np.zeros(w_res*I_res*w_res)])
-joint_u0_uI_u1 = cj.newDist([u_min,uI_min,u_min],[(u_max-u_min),uI_max,(u_max-u_min)],[u_res,I_res,u_res],[a for a in np.zeros(u_res*I_res*u_res)])
-joint_w0_wI = cj.newDist([w_min,wI_min],[(w_max-w_min),wI_max],[w_res,I_res],[a for a in np.zeros(w_res*I_res)])
-joint_u0_uI = cj.newDist([u_min,uI_min],[(u_max-u_min),uI_max],[u_res,I_res],[a for a in np.zeros(u_res*I_res)])
+joint_w0_wI_w1 = cj.newDist([w_min,wI_min,w_min],[(w_max-w_min),(wI_max-wI_min),(w_max-w_min)],[w_res,I_res,w_res],[a for a in np.zeros(w_res*I_res*w_res)])
+joint_u0_uI_u1 = cj.newDist([u_min,uI_min,u_min],[(u_max-u_min),(uI_max-uI_min),(u_max-u_min)],[u_res,I_res,u_res],[a for a in np.zeros(u_res*I_res*u_res)])
+joint_w0_wI = cj.newDist([w_min,wI_min],[(w_max-w_min),(wI_max-wI_min)],[w_res,I_res],[a for a in np.zeros(w_res*I_res)])
+joint_u0_uI = cj.newDist([u_min,uI_min],[(u_max-u_min),(uI_max-uI_min)],[u_res,I_res],[a for a in np.zeros(u_res*I_res)])
 
 # w and wI and u and uI are independent so just build the joint distribution by multiplying
 cj.joint2Di(w0, wI, joint_w0_wI)
@@ -623,8 +651,8 @@ cj.joint2Di(u0, uI, joint_u0_uI)
 cj.collider(joint_w0_wI, [0,1], c_w_prime, joint_w0_wI_w1)
 cj.collider(joint_u0_uI, [0,1], c_u_prime, joint_u0_uI_u1)
 
-marginal_wI_w1 = cj.newDist([wI_min,w_min],[wI_max,(w_max-w_min)],[I_res,w_res],[a for a in np.zeros(I_res*w_res)])
-marginal_uI_u1 = cj.newDist([uI_min,u_min],[uI_max,(u_max-u_min)],[I_res,u_res],[a for a in np.zeros(I_res*u_res)])
+marginal_wI_w1 = cj.newDist([wI_min,w_min],[(wI_max-wI_min),(w_max-w_min)],[I_res,w_res],[a for a in np.zeros(I_res*w_res)])
+marginal_uI_u1 = cj.newDist([uI_min,u_min],[(uI_max-uI_min),(u_max-u_min)],[I_res,u_res],[a for a in np.zeros(I_res*u_res)])
 w1 = cj.newDist([w_min],[(w_max-w_min)],[w_res],[a for a in np.zeros(w_res)])
 u1 = cj.newDist([u_min],[(u_max-u_min)],[u_res],[a for a in np.zeros(u_res)])
 
@@ -862,9 +890,9 @@ marginal_vwvu = cj.newDist([cj.base(c_vwvu)[2]],[cj.size(c_vwvu)[2]],[res], [a f
 
 cj.marginal(marginal_vwvu_v1, 1, marginal_vwvu)
 
-v1_given_vwvu = cj.newDist([v_min,cj.base(c_vwvu)[2]],[(v_max-v_min),cj.size(c_vwvu)[2]],[v_res,res], [a for a in np.zeros(v_res*res)])
+v1_given_vwvu_t = cj.newDist([cj.base(c_vwvu)[2],v_min],[cj.size(c_vwvu)[2],(v_max-v_min)],[res,v_res], [a for a in np.zeros(res*v_res)]) # Here's a problem. we need transpose!
 
-cj.conditional(marginal_vwvu_v1, [0], marginal_vwvu, v1_given_vwvu)
+cj.conditional(marginal_vwvu_v1, [0], marginal_vwvu, v1_given_vwvu_t)
 
 # Finally, calculate the joint w0,vwvu,v1 then find the marginal
 
@@ -996,12 +1024,10 @@ for iteration in range(1000):
     n_mass = [a for a in vwvu_v_dist]
     total_reset_mass = 0.0
     for j in range(cj.res(marginal_vwvu_v1)[0]): # for each column
-        reset_mass = 0.0
         for i in range(cj.res(marginal_vwvu_v1)[1]): 
             index = (i * cj.res(marginal_vwvu_v1)[0]) + j
             reset_index = (reset_cell * cj.res(marginal_vwvu_v1)[0]) + j
             if i >= threshold_cell and vwvu_v_dist[index] > 0.0:
-                reset_mass += vwvu_v_dist[index]
                 n_mass[reset_index] += vwvu_v_dist[index]
                 n_mass[index] = 0.0
                 total_reset_mass += vwvu_v_dist[index]
@@ -1024,7 +1050,7 @@ for iteration in range(1000):
     
     cj.conditional(marginal_vwvu_v1, [0], marginal_vwvu, v1_given_vwvu)
     
-    cj.joint3D(marginal_w0_vwvu, 1, v1_given_vwvu, joint_w0_vwvu_v1)
+    cj.joint3D(marginal_w0_vwvu, 1, v1_given_vwvu, joint_w0_vwvu_v1) # v1_given_vwvu is transposed. This is a bug I think
     cj.marginal(joint_w0_vwvu_v1, 1, marginal_w0_v1)
     cj.conditional(marginal_w0_v1, [0], w1, v1_given_w0)
     
@@ -1033,7 +1059,7 @@ for iteration in range(1000):
     
     cj.marginal(joint_u0_vu_vwvu, 1, marginal_u0_vwvu)
     
-    cj.joint3D(marginal_u0_vwvu, 1, v1_given_vwvu, joint_u0_vwvu_v1)
+    cj.joint3D(marginal_u0_vwvu, 1, v1_given_vwvu, joint_u0_vwvu_v1) # v1_given_vwvu is transposed. This is a bug I think
     cj.marginal(joint_u0_vwvu_v1, 1, marginal_u0_v1)
     cj.conditional(marginal_u0_v1, [0], u1, v1_given_u0)
 
@@ -1075,7 +1101,7 @@ for iteration in range(1000):
             if (mc_neurons[nn][0] > -50.0):
                 mc_neurons[nn][0] = -70.6
                 fired_count+=1
-
+                
             mc_neurons[nn][1] += epsp*poisson.rvs(w_rate*0.1) # override w
             mc_neurons[nn][2] += ipsp*poisson.rvs(u_rate*0.1) # override u
 
@@ -1089,7 +1115,7 @@ for iteration in range(1000):
         cj.step()
         #rates1 = rates1 + [cj.readRates()[0]*1000]
         mass = cj.readMass(pop3)
-        miind_redux_rates = miind_redux_rates + [cj.readRates()[0]]
+        miind_redux_rates = miind_redux_rates + [cj.readRates()[0]*1000]
     
         cj.update(miind_mass_grid, [a for a in mass])
 
@@ -1162,9 +1188,9 @@ for iteration in range(1000):
             ax[0,1].hist(mc_neurons[:,1], density=True, bins=w_res, range=[w_min,w_max], histtype='step')
             ax[1,0].hist(mc_neurons[:,2], density=True, bins=u_res, range=[u_min,u_max], histtype='step')
         if show_miind_redux:
-            ax[0,0].plot(np.linspace(v_min,v_max,v_res), miind_dist_v)
-            ax[0,1].plot(np.linspace(w_min,w_max,w_res), miind_dist_w)
-            ax[1,0].plot(np.linspace(u_min,u_max,u_res), miind_dist_u)
+            ax[0,0].plot(np.linspace(v_min,v_max,v_res), miind_dist_v, linestyle='--')
+            ax[0,1].plot(np.linspace(w_min,w_max,w_res), miind_dist_w, linestyle='--')
+            ax[1,0].plot(np.linspace(u_min,u_max,u_res), miind_dist_u, linestyle='--')
         if show_miind_orig:
             ax[0,0].plot(np.linspace(v_min,v_max,100), miind_orig_dist_v)
             ax[0,1].plot(np.linspace(w_min,w_max,100), miind_orig_dist_w)
@@ -1173,11 +1199,11 @@ for iteration in range(1000):
         fig.tight_layout()
         plt.show()
 
-    cj.rescale(v2)
-    cj.rescale(w2)
-    cj.rescale(u2)
-    cj.rescale(joint_v2_w2)
-    cj.rescale(joint_v2_u2)
+    #cj.rescale(v2)
+    #cj.rescale(w2)
+    #cj.rescale(u2)
+    #cj.rescale(joint_v2_w2)
+    #cj.rescale(joint_v2_u2)
 
     # Transfer v1,w1,u1 -> v0,w0,u0, transfer v2,w2,u2 -> v1,w1,u1
     cj.transfer(v1,v0)
