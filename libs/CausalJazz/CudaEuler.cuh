@@ -492,10 +492,13 @@ __global__ void GenerateBGivenA(
     fptype* AB);
 
 __global__ void GenerateJointADFromABCDDiamond(
-    inttype num_AB_cells,
+    inttype num_AD_cells,
     fptype* out,
     inttype A_res,
     inttype B_res,
+    inttype C_res,
+    inttype D_res,
+    fptype* A,
     fptype* BC_given_A,
     fptype* D_given_BC);
 

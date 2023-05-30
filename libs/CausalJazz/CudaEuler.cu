@@ -1244,6 +1244,37 @@ __global__ void GenerateBGivenA(
     }
 }
 
+__global__ void GenerateJointADFromABCDDiamond(
+    inttype num_AD_cells,
+    fptype* out,
+    inttype A_res,
+    inttype B_res,
+    inttype C_res,
+    inttype D_res,
+    fptype* A,
+    fptype* BC_given_A,
+    fptype* D_given_BC)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_AD_cells; i += stride) {
+
+        inttype D_joint = int(i / A_res);
+        inttype A_joint = modulo(i, A_res);
+
+        fptype total = 0.0;
+        for (unsigned int b = 0; b < B_res; b++) {
+            for (unsigned int c = 0; c < C_res; c++) {
+                inttype C_joint = int(modulo(i, (B_res*C_res)) / B_res);
+                inttype B_joint = modulo(i, B_res);
+                total += A[A_joint] * BC_given_A[B_joint + (C_joint * B_res) + (A_joint * B_res * C_res)] * D_given_BC[B_joint + (C_joint * B_res) + (D_joint * B_res * C_res)];
+            }
+        }
+        out[i] = total;
+    }
+}
+
 __global__ void transferMassBetweenGrids(
     inttype num_cells,
     fptype* in,
