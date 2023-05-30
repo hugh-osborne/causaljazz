@@ -20,7 +20,7 @@ def main():
     
     # Build empty miind and miind_api directories in root folder. 
     # We don't want them there in the repo as they're just placeholders.
-    fastmc_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'causaljazz')
+    fastmc_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pycausaljazz')
     try:
         os.mkdir(fastmc_dir)
     except:
@@ -276,7 +276,7 @@ class RearrangeCMakeOutput(object):
             data_files,
             # To get around a check that prepends source dir to paths and breaks package detection code.
             cmake_source_dir="",
-            cmake_install_dir=cmake_install_reldir,
+            _cmake_install_dir=cmake_install_reldir,
         )
 
 # This creates a list which is empty but returns a length of 1.

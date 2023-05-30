@@ -9,11 +9,6 @@ from scipy.stats import poisson
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.cm as cm
 
-import miind.miind_api as api
-import miind.miind_api.tools as tools
-import os
-import miind.miindsimv as miind
-
 def find_nearest(array, value):
     array = np.asarray(array)
     idx = (np.abs(array - value)).argmin()
@@ -27,7 +22,6 @@ test_deomposition = True
 
 show_miind_redux = True
 show_monte_carlo = True
-show_miind_orig = False
 
 
 def plot3D(points, data):
@@ -616,10 +610,6 @@ pop3 = cj.addPopulation(miind_cond_grid, [-70.6, 0.0, 0.0], 0.0, False)
 miind_ex = cj.poisson(pop3, [0,epsp,0])
 miind_in = cj.poisson(pop3, [0,0,ipsp])
 
-# Read MIIND (ORiginal) simulation (performed elsehwere)
-
-sim = api.MiindSimulation("cond3D.xml")
-
 ######
 
 c_w_prime = cj.boundedFunction([w_min,wI_min],[(w_max-w_min),(wI_max-wI_min)],[w_res,I_res], w_prime, w_min, (w_max-w_min), w_res)
@@ -1142,40 +1132,6 @@ for iteration in range(1000):
         miind_dist_w = [a / ((w_max-w_min)/w_res) for a in miind_dist_w]
         miind_dist_u = [a / ((u_max-u_min)/u_res) for a in miind_dist_u]
 
-    if show_miind_orig:
-        # Read densities from MIIND (Original)
-
-        # Load the LIF density
-        density = sim.getDensityByNodeName("RG_E")
-
-        # Not used but Useful for identifying times and files
-        density_fnames = density.fnames
-
-        times  = [ float(os.path.basename(x).split('_')[2]) for x in density_fnames]
-        # Get the specific file for the required time
-        idx = times.index(int(10000*iteration*0.0001)/10000)
-  
-        # Read the raw mass values
-        density_vals, coords = tools.read_density(density_fnames[idx])
-   
-        # Again, perhaps we can use the new code to get the right 
-
-        cj.update(miind_mass_grid, [a for a in density_vals])
-
-        cj.marginal(miind_mass_grid, 2, miind_marginal_vw)
-        cj.marginal(miind_mass_grid, 1, miind_marginal_vu)
-        cj.marginal(miind_marginal_vw, 1, miind_marginal_v)
-        cj.marginal(miind_marginal_vw, 0, miind_marginal_w)
-        cj.marginal(miind_marginal_vu, 0, miind_marginal_u)
-
-        miind_orig_dist_v = cj.readDist(miind_marginal_v)
-        miind_orig_dist_w = cj.readDist(miind_marginal_w)
-        miind_orig_dist_u = cj.readDist(miind_marginal_u)
-
-        miind_orig_dist_v = [a / ((v_max-v_min)/100) for a in miind_orig_dist_v]
-        miind_orig_dist_w = [a / ((w_max-w_min)/100) for a in miind_orig_dist_w]
-        miind_orig_dist_u = [a / ((u_max-u_min)/100) for a in miind_orig_dist_u]
-
     # The monte carlo hist function gives density not mass (booo)
     # so let's just convert to density here
     
@@ -1200,10 +1156,6 @@ for iteration in range(1000):
             ax[0,0].plot(np.linspace(v_min,v_max,v_res), miind_dist_v, linestyle='--')
             ax[0,1].plot(np.linspace(w_min,w_max,w_res), miind_dist_w, linestyle='--')
             ax[1,0].plot(np.linspace(u_min,u_max,u_res), miind_dist_u, linestyle='--')
-        if show_miind_orig:
-            ax[0,0].plot(np.linspace(v_min,v_max,100), miind_orig_dist_v)
-            ax[0,1].plot(np.linspace(w_min,w_max,100), miind_orig_dist_w)
-            ax[1,0].plot(np.linspace(u_min,u_max,100), miind_orig_dist_u)
     
         fig.tight_layout()
         plt.show()
