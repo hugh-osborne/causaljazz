@@ -1103,7 +1103,7 @@ __global__ void GenerateBGivenAC(
         if (AC[(C_joint * B_res) + A_joint] == 0)
             out[i] = 0.0;
         else
-            out[i] = ABC[i] / AC[(C_joint * B_res) + A_joint];
+            out[i] = ABC[i] / AC[(C_joint * A_res) + A_joint];
     }
 }
 
@@ -1281,5 +1281,22 @@ __global__ void rescaleMass(
 
     for (int i = index; i < num_cells; i += stride) {
         out[i] /= sum[0];
+    }
+}
+
+__global__ void transpose(
+    inttype num_out_cells,
+    fptype* in,
+    inttype in_A_cells,
+    inttype in_B_cells,
+    fptype* out)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_out_cells; i += stride) {
+        inttype A_joint = modulo(i, in_A_cells);
+        inttype B_joint = int(i / in_A_cells);
+        out[i] = in[(A_joint*in_B_cells) + B_joint];
     }
 }

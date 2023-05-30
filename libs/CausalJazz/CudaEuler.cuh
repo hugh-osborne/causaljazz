@@ -491,6 +491,14 @@ __global__ void GenerateBGivenA(
     fptype* A,
     fptype* AB);
 
+__global__ void GenerateJointADFromABCDDiamond(
+    inttype num_AB_cells,
+    fptype* out,
+    inttype A_res,
+    inttype B_res,
+    fptype* BC_given_A,
+    fptype* D_given_BC);
+
 __global__ void transferMassBetweenGrids(
     inttype num_cells,
     fptype* in,
@@ -504,6 +512,13 @@ __global__ void sumMass(
 __global__ void rescaleMass(
     inttype num_cells,
     fptype* sum,
+    fptype* out);
+
+__global__ void transpose(
+    inttype num_out_cells,
+    fptype* in,
+    inttype in_A_cells,
+    inttype in_B_cells,
     fptype* out);
 
 #endif

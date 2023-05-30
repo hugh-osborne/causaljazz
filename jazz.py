@@ -430,7 +430,7 @@ def cond(y):
     E_i = -75
     C = 281
     g_l = 0.03
-    tau_e =2.728
+    tau_e =10.49
     tau_i = 10.49
 
     v = y[0]
@@ -450,7 +450,7 @@ def cond_diff(y):
     E_i = -75
     C = 281
     g_l = 0.03
-    tau_e =2.728
+    tau_e =10.49
     tau_i =10.49
 
     v = y[0]
@@ -466,7 +466,7 @@ def cond_diff(y):
 def w_prime(y):
     w = y[0]
     jump = y[1]
-    tau_e =2.728
+    tau_e =10.49
     dt = 0.1
 
     w_prime = -(w) / tau_e
@@ -516,11 +516,11 @@ def v_prime(y):
 
     return v + dt*v_prime
 
-res = 200
-v_res = 200
-w_res = 200
-u_res = 200
-I_res = 200
+res = 100
+v_res = 100
+w_res = 100
+u_res = 100
+I_res = 100
 
 v_max = -40.0
 v_min = -80.0
@@ -561,15 +561,14 @@ u0 = cj.newDist([u_min],[(u_max-u_min)],[u_res],[a for a in updf])
 
 # Poisson inputs
 
-w_rate = 20
-epsp = 0.1
-wI_max_events = 10
+w_rate = 4
+epsp = 0.5
+wI_max_events = 5
 wI_min_events = -2
 wI_max = wI_max_events*epsp
 wI_min = wI_min_events*epsp
 epsps = np.linspace(wI_min, wI_max, I_res)
 wI_events = np.linspace(wI_min_events, wI_max_events, I_res)
-wIpdf = [poisson.pmf(a, w_rate*0.1) for a in wI_events]
 wIpdf_final = [0 for a in wI_events]
 for i in range(len(wI_events)-1):
     if (int(wI_events[i]) < int(wI_events[i+1])) or (wI_events[i] < 0 and wI_events[i+1] >= 0): # we have just passed a new event
@@ -584,15 +583,14 @@ for i in range(len(wI_events)-1):
 wIpdf = wIpdf_final
 wI = cj.newDist([wI_min], [wI_max], [I_res], [a for a in wIpdf])
 
-u_rate = 10
-ipsp = 0.1
-uI_max_events = 10
+u_rate = 2
+ipsp = 0.5
+uI_max_events = 5
 uI_min_events = -2
 uI_max = wI_max_events*epsp
 uI_min = wI_min_events*epsp
 ipsps = np.linspace(uI_min, uI_max, I_res)
 uI_events = np.linspace(uI_min_events, uI_max_events, I_res)
-uIpdf = [poisson.pmf(a, u_rate*0.1) for a in uI_events]
 uIpdf_final = [0 for a in uI_events]
 for i in range(len(uI_events)-1):
     if (int(uI_events[i]) < int(uI_events[i+1])) or (uI_events[i] < 0 and uI_events[i+1] >= 0): # we have just passed a new event
@@ -798,13 +796,17 @@ cj.marginal(marginal_vw_vwvu, 1, marginal_vw)
 #plotDist3D(joint_vw_vu_vwvu)
 #plotDist2D(marginal_vw_vwvu)
 #plotDist1D(marginal_vw)
-#plt.show()
 
 marginal_vu_vwvu = cj.newDist([cj.base(c_vu)[2],cj.base(c_vwvu)[2]],[cj.size(c_vu)[2],cj.size(c_vwvu)[2]],[res,res], [a for a in np.zeros(res*res)])
 marginal_vu = cj.newDist([cj.base(c_vu)[2]],[cj.size(c_vu)[2]],[res], [a for a in np.zeros(res)])
 
 cj.marginal(joint_vw_vu_vwvu, 0, marginal_vu_vwvu)
 cj.marginal(marginal_vu_vwvu, 1, marginal_vu)
+
+#plotDist2D(marginal_vu_vwvu)
+#plotDist1D(marginal_vu)
+#plt.show()
+
 
 vwvu_given_vw = cj.newDist([cj.base(c_vw)[2],cj.base(c_vwvu)[2]],[cj.size(c_vw)[2],cj.size(c_vwvu)[2]],[res,res], [a for a in np.zeros(res*res)])
 
@@ -890,16 +892,18 @@ marginal_vwvu = cj.newDist([cj.base(c_vwvu)[2]],[cj.size(c_vwvu)[2]],[res], [a f
 
 cj.marginal(marginal_vwvu_v1, 1, marginal_vwvu)
 
-v1_given_vwvu_t = cj.newDist([cj.base(c_vwvu)[2],v_min],[cj.size(c_vwvu)[2],(v_max-v_min)],[res,v_res], [a for a in np.zeros(res*v_res)]) # Here's a problem. we need transpose!
+v1_given_vwvu = cj.newDist([v_min,cj.base(c_vwvu)[2]],[(v_max-v_min),cj.size(c_vwvu)[2]],[v_res,res], [a for a in np.zeros(v_res*res)])
+v1_given_vwvu_t = cj.newDist([cj.base(c_vwvu)[2],v_min],[cj.size(c_vwvu)[2],(v_max-v_min)],[res,v_res], [a for a in np.zeros(res*v_res)])
 
 cj.conditional(marginal_vwvu_v1, [0], marginal_vwvu, v1_given_vwvu_t)
+cj.transpose(v1_given_vwvu_t, v1_given_vwvu)
 
 # Finally, calculate the joint w0,vwvu,v1 then find the marginal
 
 joint_w0_vwvu_v1 = cj.newDist([w_min,cj.base(c_vwvu)[2],v_min],[(w_max-w_min),cj.size(c_vwvu)[2],(v_max-v_min)],[w_res,res,v_res], [a for a in np.zeros(w_res*res*v_res)])
 marginal_w0_v1 = cj.newDist([w_min, v_min], [(w_max-w_min), (v_max-v_min)], [w_res,v_res], [a for a in np.zeros(w_res*v_res)])
 
-cj.joint3D(marginal_w0_vwvu, 1, v1_given_vwvu, joint_w0_vwvu_v1)
+cj.joint3D(marginal_w0_vwvu, 1, v1_given_vwvu_t, joint_w0_vwvu_v1)
 cj.marginal(joint_w0_vwvu_v1, 1, marginal_w0_v1)
 cj.conditional(marginal_w0_v1, [0], w0, v1_given_w0)
 
@@ -921,7 +925,7 @@ cj.marginal(joint_u0_vu_vwvu, 1, marginal_u0_vwvu)
 joint_u0_vwvu_v1 = cj.newDist([u_min,cj.base(c_vwvu)[2],v_min],[(u_max-u_min),cj.size(c_vwvu)[2],(v_max-v_min)],[u_res,res,v_res], [a for a in np.zeros(u_res*res*v_res)])
 marginal_u0_v1 = cj.newDist([u_min, v_min], [(u_max-u_min), (v_max-v_min)], [u_res,v_res], [a for a in np.zeros(u_res*v_res)])
 
-cj.joint3D(marginal_u0_vwvu, 1, v1_given_vwvu, joint_u0_vwvu_v1)
+cj.joint3D(marginal_u0_vwvu, 1, v1_given_vwvu_t, joint_u0_vwvu_v1)
 cj.marginal(joint_u0_vwvu_v1, 1, marginal_u0_v1)
 
 cj.conditional(marginal_u0_v1, [0], u0, v1_given_u0)
@@ -1009,6 +1013,9 @@ for iteration in range(1000):
 
     cj.marginal(joint_v0_vwvu_v1, 0, marginal_vwvu_v1)
 
+    cj.marginal(marginal_vw_vwvu, 0, marginal_vwvu)
+    cj.joint2Di(marginal_vwvu, v1, marginal_vwvu_v1)
+
     # We want to perform the threshold-reset functionality. However, just doing this to v2 is going
     # to muck things up because we use marginal_vwvu_v1 later on which would have the "unedited"
     # version of v2 in it. 
@@ -1038,6 +1045,7 @@ for iteration in range(1000):
     #cj.rescale(marginal_vwvu_v1)
 
     cj.marginal(marginal_vwvu_v1, 0, v2) # Now both v2 and vwvu_v1 capture the correct distribution
+    #print(cj.total(v2))
 
 
     # Update joint distributions w'v' and u'v'
@@ -1048,9 +1056,10 @@ for iteration in range(1000):
     
     cj.marginal(marginal_vwvu_v1, 1, marginal_vwvu)
     
-    cj.conditional(marginal_vwvu_v1, [0], marginal_vwvu, v1_given_vwvu)
+    cj.conditional(marginal_vwvu_v1, [0], marginal_vwvu, v1_given_vwvu_t)
+    #cj.transpose(v1_given_vwvu_t, v1_given_vwvu)
     
-    cj.joint3D(marginal_w0_vwvu, 1, v1_given_vwvu, joint_w0_vwvu_v1) # v1_given_vwvu is transposed. This is a bug I think
+    cj.joint3D(marginal_w0_vwvu, 1, v1_given_vwvu_t, joint_w0_vwvu_v1)
     cj.marginal(joint_w0_vwvu_v1, 1, marginal_w0_v1)
     cj.conditional(marginal_w0_v1, [0], w1, v1_given_w0)
     
@@ -1059,7 +1068,7 @@ for iteration in range(1000):
     
     cj.marginal(joint_u0_vu_vwvu, 1, marginal_u0_vwvu)
     
-    cj.joint3D(marginal_u0_vwvu, 1, v1_given_vwvu, joint_u0_vwvu_v1) # v1_given_vwvu is transposed. This is a bug I think
+    cj.joint3D(marginal_u0_vwvu, 1, v1_given_vwvu_t, joint_u0_vwvu_v1)
     cj.marginal(joint_u0_vwvu_v1, 1, marginal_u0_v1)
     cj.conditional(marginal_u0_v1, [0], u1, v1_given_u0)
 

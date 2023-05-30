@@ -460,3 +460,14 @@ double CausalJazz::totalMass(unsigned int grid_id) {
 
 	return (double)mass;
 }
+
+void CausalJazz::transpose2D(unsigned int in, unsigned int out) {
+	unsigned int numBlocks = (grids[out].getTotalNumCells() + block_size - 1) / block_size;
+
+	transpose << <numBlocks, block_size >> > (
+		grids[out].getTotalNumCells(),
+		grids[in].getProbabilityMass(),
+		grids[in].getRes()[0],
+		grids[in].getRes()[1],
+		grids[out].getProbabilityMass());
+}

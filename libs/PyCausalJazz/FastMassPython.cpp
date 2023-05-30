@@ -2245,6 +2245,53 @@ PyObject* fastmass_total(PyObject* self, PyObject* args)
     }
 }
 
+PyObject* fastmass_transpose(PyObject* self, PyObject* args)
+{
+    /* Get arbitrary number of strings from Py_Tuple */
+    Py_ssize_t i = 0;
+    PyObject* temp_p, * temp_p2;
+
+    unsigned int in_id;
+    unsigned int out_id;
+
+    try {
+        // in dist id
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            in_id = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        // out dist id
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            out_id = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+
+        jazz->transpose2D(in_id, out_id);
+
+        Py_RETURN_NONE;
+    }
+    catch (const std::exception& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    catch (...) {
+        PyErr_SetString(PyExc_RuntimeError, "Unhandled Exception during generateNdGrid()");
+        return NULL;
+    }
+}
+
 /*
  * List of functions to add to WinMiindPython in exec_WinMiindPython().
  */
@@ -2283,6 +2330,7 @@ static PyMethodDef pycausaljazz_functions[] = {
     {"rescale", (PyCFunction)fastmass_rescale, METH_VARARGS, "Jazz : Rescale mass in a grid to sum to 1.0."},
     {"update", (PyCFunction)fastmass_update, METH_VARARGS, "Jazz : Update the mass in a grid."},
     {"total", (PyCFunction)fastmass_total, METH_VARARGS, "Jazz : Check the mass total in this grid."},
+    {"transpose", (PyCFunction)fastmass_transpose, METH_VARARGS, "Jazz : Transpose this grid."},
     { NULL, NULL, 0, NULL } /* marks end of array */
 };
 

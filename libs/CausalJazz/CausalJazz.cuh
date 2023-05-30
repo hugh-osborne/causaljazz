@@ -25,6 +25,7 @@ public:
 	void reduceJointDistributionToConditional(CudaGrid* A, std::vector<unsigned int> given, CudaGrid* givenDist, unsigned int out);
 	void transferMass(unsigned int in, unsigned int out);
 	void rescale(unsigned int grid);
+	void transpose2D(unsigned int in, unsigned int out);
 	void update(unsigned int grid_id, std::vector<double> A);
 	double totalMass(unsigned int grid_id);
 	CudaGrid* getGrid(unsigned int grid) { return &grids[grid]; }
