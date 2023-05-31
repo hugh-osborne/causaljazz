@@ -741,9 +741,6 @@ joint_vw_vu_vwvu = cj.newDist([cj.base(c_vw)[2],cj.base(c_vu)[2],cj.base(c_vwvu)
 
 cj.collider(joint_vw_vu, [0,1], c_vwvu, joint_vw_vu_vwvu)
 
-#plotDist3D(joint_vw_vu_vwvu)
-#plt.show()
-
 # Finally, we need to calculate v'. However, as before, vwvu and v0 are not independent. So we start the long road to calculating the joint probability
 # We have a fork followed by a collider creating a diamond shape
 
@@ -757,6 +754,16 @@ cj.collider(joint_vw_vu, [0,1], c_vwvu, joint_vw_vu_vwvu)
 #
 # Question: If we use the chain v0 -> vw -> vwvu to calculate the joint distribution (v0,vwvu), will the result be the same if we were to instead
 # use the chain v0 -> vu -> vwvu. We want to do this to avoid having to calculate the full 4D joint distribution (v0, vw, vu, vwvu).
+# Answer: Nope! You need to take both sides into account. Yet to be seen if we can still avoid 4D because this is just a chain v0 -> vw,vu -> vwvu.
+# Perhaps, in this scenario, v0 and vwvu are independent and we can just multiply?
+
+vw_vu_given_v = cj.newDist([v_min,cj.base(c_vw)[2],cj.base(c_vu)[2]],[(v_max-v_min),cj.size(c_vw)[2],cj.size(c_vu)[2]],[v_res,res,res], [a for a in np.zeros(v_res*res*res)])
+vwvu_given_vw_vu = cj.newDist([cj.base(c_vw)[2],cj.base(c_vu)[2],cj.base(c_vwvu)[2]],[cj.size(c_vw)[2],cj.size(c_vu)[2],cj.size(c_vwvu)[2]],[res,res,res], [a for a in np.zeros(res*res*res)])
+joint_v1_vwvu = cj.newDist([v_min,cj.base(c_vwvu)[2]],[(v_max-v_min),cj.size(c_vwvu)[2]],[v_res,res], [a for a in np.zeros(v_res*res)])
+
+cj.conditional(joint_v_vw_vu, [0], v0, vw_vu_given_v)
+cj.conditional(joint_vw_vu_vwvu, [0,1], joint_vw_vu, vwvu_given_vw_vu)
+cj.diamond(v0, vw_vu_given_v, vwvu_given_vw_vu, joint_v1_vwvu)
 
 # Later, we're actually going to need both sides of this diamond, we'll use vw to calculate v1 here
 
@@ -768,13 +775,6 @@ joint_v0_vu = cj.newDist([v_min,cj.base(c_vu)[2]],[(v_max-v_min),cj.size(c_vu)[2
 
 cj.joint2D(v0, 0, vu_given_v, joint_v0_vu)
 
-#plotDist2D(joint_v0_vw)
-#plotDist2D(joint_v0_vu)
-#plt.show()
-
-#plotDist2D(joint_v0_vw)
-#plt.show()
-
 # Now we have P(v0,vw). We need to find P(vwvu|vw) to complete the chain.
 print("Now we have P(v0,vw). We need to find P(vwvu|vw) to complete the chain.")
 marginal_vw_vwvu = cj.newDist([cj.base(c_vw)[2],cj.base(c_vwvu)[2]],[cj.size(c_vw)[2],cj.size(c_vwvu)[2]],[res,res], [a for a in np.zeros(res*res)])
@@ -783,19 +783,11 @@ marginal_vw = cj.newDist([cj.base(c_vw)[2]],[cj.size(c_vw)[2]],[res], [a for a i
 cj.marginal(joint_vw_vu_vwvu, 1, marginal_vw_vwvu)
 cj.marginal(marginal_vw_vwvu, 1, marginal_vw)
 
-#plotDist3D(joint_vw_vu_vwvu)
-#plotDist2D(marginal_vw_vwvu)
-#plotDist1D(marginal_vw)
-
 marginal_vu_vwvu = cj.newDist([cj.base(c_vu)[2],cj.base(c_vwvu)[2]],[cj.size(c_vu)[2],cj.size(c_vwvu)[2]],[res,res], [a for a in np.zeros(res*res)])
 marginal_vu = cj.newDist([cj.base(c_vu)[2]],[cj.size(c_vu)[2]],[res], [a for a in np.zeros(res)])
 
 cj.marginal(joint_vw_vu_vwvu, 0, marginal_vu_vwvu)
 cj.marginal(marginal_vu_vwvu, 1, marginal_vu)
-
-#plotDist2D(marginal_vu_vwvu)
-#plotDist1D(marginal_vu)
-#plt.show()
 
 
 vwvu_given_vw = cj.newDist([cj.base(c_vw)[2],cj.base(c_vwvu)[2]],[cj.size(c_vw)[2],cj.size(c_vwvu)[2]],[res,res], [a for a in np.zeros(res*res)])
@@ -806,39 +798,15 @@ vwvu_given_vu = cj.newDist([cj.base(c_vu)[2],cj.base(c_vwvu)[2]],[cj.size(c_vu)[
 
 cj.conditional(marginal_vu_vwvu, [0], marginal_vu, vwvu_given_vu)
 
-joint_v0_vw_vwvu = cj.newDist([v_min,cj.base(c_vw)[2],cj.base(c_vwvu)[2]],[(v_max-v_min),cj.size(c_vw)[2],cj.size(c_vwvu)[2]],[v_res,res,res], [a for a in np.zeros(v_res*res*res)])
-
-cj.joint3D(joint_v0_vw, 1, vwvu_given_vw, joint_v0_vw_vwvu)
-
-#plotDist3D(joint_v0_vw_vwvu)
-#plt.show()
-
-# We have the joint, now find the marginal v0,vwvu which we can use to find v1
-print("We have the joint, now find the marginal v0,vwvu which we can use to find v1")
-marginal_v0_vwvu = cj.newDist([v_min,cj.base(c_vwvu)[2]],[(v_max-v_min),cj.size(c_vwvu)[2]],[v_res,res], [a for a in np.zeros(v_res*res)])
-
-cj.marginal(joint_v0_vw_vwvu, 1, marginal_v0_vwvu)
-
-#plotDist2D(marginal_v0_vwvu)
-#plt.show()
-
-print("marginal_v0_vwvu", cj.size(marginal_v0_vwvu)[0], cj.size(marginal_v0_vwvu)[1])
-
-# Now find v1 using the function conditional
-print("Now find v1 using the function conditional")
-joint_v0_vwvu_v1 = cj.newDist([v_min,cj.base(c_vwvu)[2],v_min],[(v_max-v_min),cj.size(c_vwvu)[2],(v_max-v_min)],[v_res,res,v_res], [a for a in np.zeros(v_res*res*v_res)])
-
-cj.collider(marginal_v0_vwvu, [0,1], c_v_prime, joint_v0_vwvu_v1)
-
-
-#plotDist3D(joint_v0_vwvu_v1)
-#plt.show()
-
 # Grab v1 from the joint distirbution
 print("Grab v1 from the joint distirbution")
 
 marginal_vwvu_v1 = cj.newDist([cj.base(c_vwvu)[2],v_min],[cj.size(c_vwvu)[2],(v_max-v_min)],[res,v_res], [a for a in np.zeros(res*v_res)])
 v1 = cj.newDist([v_min],[(v_max-v_min)],[v_res],[a for a in np.zeros(v_res)])
+
+joint_v0_vwvu_v1 = cj.newDist([v_min,cj.base(c_vwvu)[2],v_min],[(v_max-v_min),cj.size(c_vwvu)[2],(v_max-v_min)],[v_res,res,v_res], [a for a in np.zeros(v_res*res*v_res)])
+
+cj.collider(joint_v1_vwvu, [0,1], c_v_prime, joint_v0_vwvu_v1)
 
 cj.marginal(joint_v0_vwvu_v1, 0, marginal_vwvu_v1)
 cj.marginal(marginal_vwvu_v1, 0, v1)
@@ -988,23 +956,25 @@ for iteration in range(1000):
 
     # vwvu|v1
 
+    cj.conditional(joint_v_vw_vu, [0], v1, vw_vu_given_v)
+    cj.conditional(joint_vw_vu_vwvu, [0,1], joint_vw_vu, vwvu_given_vw_vu)
+    #cj.diamond(v1, vw_vu_given_v, vwvu_given_vw_vu, joint_v1_vwvu)
+
     cj.marginal(joint_vw_vu_vwvu, 1, marginal_vw_vwvu)
     cj.marginal(marginal_vw_vwvu, 1, marginal_vw)
 
     cj.marginal(joint_vw_vu_vwvu, 0, marginal_vu_vwvu)
     cj.marginal(marginal_vu_vwvu, 1, marginal_vu)
 
+    cj.marginal(marginal_vw_vwvu, 0, marginal_vwvu)
+    cj.joint2Di(v1, marginal_vwvu, joint_v1_vwvu)
+
     cj.conditional(marginal_vw_vwvu, [0], marginal_vw, vwvu_given_vw)
     cj.conditional(marginal_vu_vwvu, [0], marginal_vu, vwvu_given_vu)
-    cj.joint3D(joint_v_vw, 1, vwvu_given_vw, joint_v0_vw_vwvu)
 
-    cj.marginal(joint_v0_vw_vwvu, 1, marginal_v0_vwvu)
-    cj.collider(marginal_v0_vwvu, [0,1], c_v_prime, joint_v0_vwvu_v1)
+    cj.collider(joint_v1_vwvu, [0,1], c_v_prime, joint_v0_vwvu_v1)
 
     cj.marginal(joint_v0_vwvu_v1, 0, marginal_vwvu_v1)
-
-    cj.marginal(marginal_vw_vwvu, 0, marginal_vwvu)
-    cj.joint2Di(marginal_vwvu, v1, marginal_vwvu_v1)
 
     # We want to perform the threshold-reset functionality. However, just doing this to v2 is going
     # to muck things up because we use marginal_vwvu_v1 later on which would have the "unedited"
@@ -1135,7 +1105,7 @@ for iteration in range(1000):
     # The monte carlo hist function gives density not mass (booo)
     # so let's just convert to density here
     
-    if (iteration % 100 == 0) :
+    if (iteration % 50 == 0) :
         dist_v = cj.readDist(v0)
         dist_w = cj.readDist(w0)
         dist_u = cj.readDist(u0)

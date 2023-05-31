@@ -1947,6 +1947,80 @@ PyObject* fastmass_bounded_function(PyObject* self, PyObject* args)
     }
 }
 
+PyObject* fastmass_diamond(PyObject* self, PyObject* args)
+{
+    /* Get arbitrary number of strings from Py_Tuple */
+    Py_ssize_t i = 0;
+    PyObject* temp_p, * temp_p2;
+
+    unsigned int A_id;
+    unsigned int BCgivenA_id;
+    unsigned int DgivenBC_id;
+    unsigned int joint_id;
+
+    try {
+        // marginal dist id
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            A_id = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        // conditional dist id
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            BCgivenA_id = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        // conditional dist id
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            DgivenBC_id = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        // joint dist id
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            joint_id = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        CudaGrid* A_grid = jazz->getGrid(A_id);
+        CudaGrid* BCgivenA_grid = jazz->getGrid(BCgivenA_id);
+        CudaGrid* DgivenBC_grid = jazz->getGrid(DgivenBC_id);
+
+        jazz->buildJointDistributionFromABCDDiamond(A_grid, BCgivenA_grid, DgivenBC_grid, joint_id);
+
+        Py_RETURN_NONE;
+    }
+    catch (const std::exception& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    catch (...) {
+        PyErr_SetString(PyExc_RuntimeError, "Unhandled Exception during generateNdGrid()");
+        return NULL;
+    }
+}
+
 PyObject* fastmass_base(PyObject* self, PyObject* args)
 {
     /* Get arbitrary number of strings from Py_Tuple */
@@ -2322,6 +2396,7 @@ static PyMethodDef pycausaljazz_functions[] = {
     {"fork", (PyCFunction)fastmass_fork, METH_VARARGS, "Jazz : Calculate a joint distribution from a fork structure p(A)*p(B|A)*p(C|A)."},
     {"collider", (PyCFunction)fastmass_collider, METH_VARARGS, "Jazz : Calculate a joint distribution from a collider structure p(AB)*p(C|AB)."},
     {"function", (PyCFunction)fastmass_function, METH_VARARGS, "Jazz : Calculate a conditional based on a python function."},
+    {"diamond", (PyCFunction)fastmass_diamond, METH_VARARGS, "Jazz : Diamond."},
     {"boundedFunction", (PyCFunction)fastmass_bounded_function, METH_VARARGS, "Jazz : Calculate a conditional based on a python function. The output is explicitly bounded. "},
     {"base", (PyCFunction)fastmass_base, METH_VARARGS, "Jazz : Return the base values for a given grid id."},
     {"size", (PyCFunction)fastmass_size, METH_VARARGS, "Jazz : Return the size values for a given grid id."},

@@ -416,6 +416,19 @@ void CausalJazz::reduceJointDistributionToConditional(CudaGrid* A, std::vector<u
 	}
 }
 
+void CausalJazz::buildJointDistributionFromABCDDiamond(CudaGrid* A, CudaGrid* BCgivenA, CudaGrid* DgivenBC, unsigned int out) {
+	unsigned int numBlocks = (grids[out].getTotalNumCells() + block_size - 1) / block_size;
+	GenerateJointADFromABCDDiamond << <numBlocks, block_size >> > (
+		grids[out].getTotalNumCells(),
+		grids[out].getProbabilityMass(),
+		BCgivenA->getRes()[0],
+		BCgivenA->getRes()[1],
+		BCgivenA->getRes()[2],
+		A->getProbabilityMass(),
+		BCgivenA->getProbabilityMass(),
+		DgivenBC->getProbabilityMass());
+}
+
 void CausalJazz::transferMass(unsigned int in, unsigned int out) {
 	unsigned int numBlocks = (grids[out].getTotalNumCells() + block_size - 1) / block_size;
 	transferMassBetweenGrids << <numBlocks, block_size >> > (

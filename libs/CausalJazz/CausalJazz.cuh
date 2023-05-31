@@ -23,6 +23,7 @@ public:
 	void buildJointDistributionFromCollider(CudaGrid* AB, std::vector<unsigned int> givendims, CudaGrid* CgivenAB, unsigned int out);
 	void buildMarginalDistribution(CudaGrid* A, unsigned int droppedDim, unsigned int out);
 	void reduceJointDistributionToConditional(CudaGrid* A, std::vector<unsigned int> given, CudaGrid* givenDist, unsigned int out);
+	void buildJointDistributionFromABCDDiamond(CudaGrid* A, CudaGrid* BCgivenA, CudaGrid* DgivenBC, unsigned int out);
 	void transferMass(unsigned int in, unsigned int out);
 	void rescale(unsigned int grid);
 	void transpose2D(unsigned int in, unsigned int out);

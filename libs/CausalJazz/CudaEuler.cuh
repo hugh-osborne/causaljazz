@@ -497,7 +497,6 @@ __global__ void GenerateJointADFromABCDDiamond(
     inttype A_res,
     inttype B_res,
     inttype C_res,
-    inttype D_res,
     fptype* A,
     fptype* BC_given_A,
     fptype* D_given_BC);

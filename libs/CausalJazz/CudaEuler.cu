@@ -1250,7 +1250,6 @@ __global__ void GenerateJointADFromABCDDiamond(
     inttype A_res,
     inttype B_res,
     inttype C_res,
-    inttype D_res,
     fptype* A,
     fptype* BC_given_A,
     fptype* D_given_BC)
@@ -1266,9 +1265,7 @@ __global__ void GenerateJointADFromABCDDiamond(
         fptype total = 0.0;
         for (unsigned int b = 0; b < B_res; b++) {
             for (unsigned int c = 0; c < C_res; c++) {
-                inttype C_joint = int(modulo(i, (B_res*C_res)) / B_res);
-                inttype B_joint = modulo(i, B_res);
-                total += A[A_joint] * BC_given_A[B_joint + (C_joint * B_res) + (A_joint * B_res * C_res)] * D_given_BC[B_joint + (C_joint * B_res) + (D_joint * B_res * C_res)];
+                total += A[A_joint] * BC_given_A[A_joint + (b * A_res) + (c * A_res * B_res)] * D_given_BC[b + (c * B_res) + (D_joint * B_res * C_res)];
             }
         }
         out[i] = total;
