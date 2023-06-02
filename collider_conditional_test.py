@@ -68,12 +68,12 @@ def plotDist3D(dist, res=(100,100,100)):
 
     plot3D(points, dist)
 
-timestep = 1.0
+timestep = 0.1
 
 def cond(y):
     E_l = -70.6
     E_e = 0.0
-    E_i = -75
+    E_i = 0.0 #-75.0
     C = 281
     g_l = 0.03
     tau_e =10.49
@@ -119,7 +119,7 @@ def vu(y):
     v = y[0]
     u = y[1]
 
-    E_i = -75
+    E_i = 0.0 # -75.0
 
     return  -u * (v - E_i)
 
@@ -175,7 +175,7 @@ for x in range(u_res):
 # So let's just do that ourselves without breaking our backs by multiplying across by the discretisation width and normalising
 vpdf = [a * ((v_max-v_min)/v_res) for a in norm.pdf(v, -70.6, 2.4)]
 wpdf = [a * ((w_max-w_min)/w_res) for a in norm.pdf(w, 15.0, 2.4)]
-updf = [a * ((u_max-u_min)/u_res) for a in norm.pdf(u, 30.0, 2.4)]
+updf = [a * ((u_max-u_min)/u_res) for a in norm.pdf(u, 15.0, 2.4)]
 
 vpdf = [a / sum(vpdf) for a in vpdf]
 wpdf = [a / sum(wpdf) for a in wpdf]
@@ -207,12 +207,12 @@ for i in range(len(wI_events)-1):
 wIpdf = wIpdf_final
 wI = cj.newDist([wI_min], [wI_max], [I_res], [a for a in wIpdf])
 
-u_rate = 2
+u_rate = 4
 ipsp = 0.5
 uI_max_events = 50
 uI_min_events = -2
-uI_max = wI_max_events*epsp
-uI_min = wI_min_events*epsp
+uI_max = uI_max_events*ipsp
+uI_min = uI_min_events*ipsp
 ipsps = np.linspace(uI_min, uI_max, I_res)
 uI_events = np.linspace(uI_min_events, uI_max_events, I_res)
 uIpdf_final = [0 for a in uI_events]
@@ -335,13 +335,21 @@ joint_v0_vwvu = cj.newDist([v_min,cj.base(c_vwvu)[2]],[(v_max-v_min),cj.size(c_v
 cj.marginal(marginal_vw_vwvu, 0, marginal_vwvu)
 #cj.joint2Di(v0, marginal_vwvu, joint_v0_vwvu)
 
+# Dependent v0 and vwvu
 vw_vu_given_v = cj.newDist([v_min,cj.base(c_vw)[2],cj.base(c_vu)[2]],[(v_max-v_min),cj.size(c_vw)[2],cj.size(c_vu)[2]],[v_res,res,res], [a for a in np.zeros(v_res*res*res)])
 vwvu_given_vw_vu = cj.newDist([cj.base(c_vw)[2],cj.base(c_vu)[2],cj.base(c_vwvu)[2]],[cj.size(c_vw)[2],cj.size(c_vu)[2],cj.size(c_vwvu)[2]],[res,res,res], [a for a in np.zeros(res*res*res)])
 
-# Dependent v0 and vwvu
 cj.conditional(joint_v_vw_vu, [0], v0, vw_vu_given_v)
 cj.conditional(joint_vw_vu_vwvu, [0,1], joint_vw_vu, vwvu_given_vw_vu)
 cj.diamond(v0, vw_vu_given_v, vwvu_given_vw_vu, joint_v0_vwvu)
+
+# Just via vw
+joint_v0_vw_vwvu = cj.newDist([v_min,cj.base(c_vw)[2],cj.base(c_vwvu)[2]],[(v_max-v_min),cj.size(c_vw)[2],cj.size(c_vwvu)[2]],[v_res,res,res], [a for a in np.zeros(v_res*res*res)])
+#cj.joint3D(joint_v0_vw, 1, vwvu_given_vw, joint_v0_vw_vwvu)
+#cj.marginal(joint_v0_vw_vwvu, 1, joint_v0_vwvu)
+
+
+######
 
 joint_v0_vwvu_v1 = cj.newDist([v_min,cj.base(c_vwvu)[2],v_min],[(v_max-v_min),cj.size(c_vwvu)[2],(v_max-v_min)],[v_res,res,v_res], [a for a in np.zeros(v_res*res*v_res)])
 
@@ -405,6 +413,7 @@ cj.fork(u0, 0, v1_given_u0, 0, u1_given_u0, joint_u0_v1_u1)
 cj.marginal(joint_w0_v1_w1, 0, joint_v1_w1)
 cj.marginal(joint_u0_v1_u1, 0, joint_v1_u1)
 
+
 v1_check = cj.newDist([v_min],[(v_max-v_min)],[v_res],[a for a in np.zeros(v_res)])
 cj.marginal(joint_v1_w1, 1, v1_check)
 
@@ -417,11 +426,13 @@ cj.marginal(joint_v1_w1, 0, w1_check)
 u1_check = cj.newDist([u_min],[(u_max-u_min)],[u_res],[a for a in np.zeros(u_res)])
 cj.marginal(joint_v1_u1, 0, u1_check)
 
+
+
 # Joint Monte Carlo
 
 num_neurons = 10000
 
-mc_joint_neurons = np.array([[norm.rvs(-70.6, 2.4, 1)[0],norm.rvs(15.0, 2.4, 1)[0],norm.rvs(30.0, 2.4, 1)[0]] for a in range(num_neurons)])
+mc_joint_neurons = np.array([[norm.rvs(-70.6, 2.4, 1)[0],norm.rvs(15.0, 2.4, 1)[0],norm.rvs(15.0, 2.4, 1)[0]] for a in range(num_neurons)])
 
 mc_joint_neurons_prime = np.array([cond(mc_joint_neurons[a]) for a in range(num_neurons)])
 
@@ -438,7 +449,7 @@ for nn in range(len(mc_joint_neurons_prime)):
 w_inputs = np.array([[poisson.rvs(w_rate*timestep)*epsp] for a in range(num_neurons)])
 u_inputs = np.array([[poisson.rvs(u_rate*timestep)*ipsp] for a in range(num_neurons)])
 
-mc_neurons = np.array([[norm.rvs(-70.6, 2.4, 1)[0],norm.rvs(15.0, 2.4, 1)[0],norm.rvs(30.0, 2.4, 1)[0]] for a in range(num_neurons)])
+mc_neurons = np.array([[norm.rvs(-70.6, 2.4, 1)[0],norm.rvs(15.0, 2.4, 1)[0],norm.rvs(15.0, 2.4, 1)[0]] for a in range(num_neurons)])
 
 mc_neurons_joint_w_wI_w1 = np.array([[mc_neurons[a][1],w_inputs[a][0],w_prime([mc_neurons[a][1],w_inputs[a][0]])] for a in range(num_neurons)])
 mc_neurons_joint_u_uI_u1 = np.array([[mc_neurons[a][2],u_inputs[a][0],u_prime([mc_neurons[a][2],u_inputs[a][0]])] for a in range(num_neurons)])
@@ -554,6 +565,7 @@ joint_v2_u2 = cj.newDist([v_min,u_min],[(v_max-v_min),(u_max-u_min)],[v_res,u_re
 
 for iteration in range(1000):
 
+    # Calculate next w and u
     cj.joint2Di(w1, wI, joint_w0_wI)
     cj.joint2Di(u1, uI, joint_u0_uI)
 
@@ -566,13 +578,20 @@ for iteration in range(1000):
     cj.marginal(marginal_wI_w1, 0, w2)
     cj.marginal(marginal_uI_u1, 0, u2)
 
+
+    # Calc w2 given w1 for later
+
     cj.marginal(joint_w0_wI_w1, 1, marginal_w0_w1)
     cj.marginal(joint_u0_uI_u1, 1, marginal_u0_u1)
     cj.conditional(marginal_w0_w1, [0], w1, w1_given_w0)
     cj.conditional(marginal_u0_u1, [0], u1, u1_given_u0)
 
+    # Take the joint distirbutions of joint_v_u from the previous iteration and calcualte vw and vu
+
     cj.collider(joint_v1_w1, [0,1], c_vw, joint_v_w_vw)
     cj.collider(joint_v1_u1, [0,1], c_vu, joint_v_u_vu)
+
+    # Take the two joint distributions and calculate the fork distribution v vw vu
     
     cj.marginal(joint_v_w_vw, 1, joint_v_vw)
     cj.marginal(joint_v_u_vu, 1, joint_v_vu)
@@ -582,24 +601,28 @@ for iteration in range(1000):
 
     cj.fork(v1, 0, vw_given_v, 0, vu_given_v, joint_v_vw_vu)
 
+    # Use the joint vw vu to calculate vwvu
+
     cj.marginal(joint_v_vw_vu, 0, joint_vw_vu)
 
     cj.collider(joint_vw_vu, [0,1], c_vwvu, joint_vw_vu_vwvu)
 
-    cj.joint2D(v1, 0, vw_given_v, joint_v0_vw)
-    cj.joint2D(v1, 0, vu_given_v, joint_v0_vu)
+    # Now work with the diamond to calculate joint v vwvu
+
+    #cj.joint2D(v1, 0, vw_given_v, joint_v0_vw)
+    #cj.joint2D(v1, 0, vu_given_v, joint_v0_vu) # not needed, why are we doing this?
+
+    # Later, we need vwvu given vw and vwvu given vu
     
     cj.marginal(joint_vw_vu_vwvu, 1, marginal_vw_vwvu)
-    cj.marginal(joint_v_vw, 0, marginal_vw)
+    cj.marginal(marginal_vw_vwvu, 1, marginal_vw)
     
     cj.marginal(joint_vw_vu_vwvu, 0, marginal_vu_vwvu)
-    cj.marginal(joint_v_vu, 0, marginal_vu)
+    cj.marginal(marginal_vu_vwvu, 1, marginal_vu)
 
     cj.conditional(marginal_vw_vwvu, [0], marginal_vw, vwvu_given_vw)
 
     cj.conditional(marginal_vu_vwvu, [0], marginal_vu, vwvu_given_vu)
-
-    cj.marginal(marginal_vw_vwvu, 0, marginal_vwvu)
     
     cj.conditional(joint_v_vw_vu, [0], v1, vw_vu_given_v)
     cj.conditional(joint_vw_vu_vwvu, [0,1], joint_vw_vu, vwvu_given_vw_vu)
@@ -608,6 +631,8 @@ for iteration in range(1000):
     cj.collider(joint_v0_vwvu, [0,1], c_v_prime, joint_v0_vwvu_v1)
 
     cj.marginal(joint_v0_vwvu_v1, 0, marginal_vwvu_v1)
+
+    # Now calcultae v2 including the threshold reset
 
     vwvu_v_dist = cj.readDist(marginal_vwvu_v1)
 
@@ -631,12 +656,14 @@ for iteration in range(1000):
 
     cj.marginal(marginal_vwvu_v1, 0, v2)
 
+    # Now to calculate the new joint v,w and joint v,u
 
     cj.marginal(joint_v_w_vw, 0, marginal_w0_vw)
     cj.joint3D(marginal_w0_vw, 1, vwvu_given_vw, joint_w0_vw_vwvu)
     
     cj.marginal(joint_w0_vw_vwvu, 1, marginal_w0_vwvu)
     
+    cj.marginal(marginal_vwvu_v1, 1, marginal_vwvu)
     cj.conditional(marginal_vwvu_v1, [0], marginal_vwvu, v1_given_vwvu)
     
     cj.joint3D(marginal_w0_vwvu, 1, v1_given_vwvu, joint_w0_vwvu_v1)
@@ -755,6 +782,7 @@ for iteration in range(1000):
         dist_v1_check = [a / ((v_max-v_min)/100) for a in dist_v1_check]
         dist_v1_check2 = [a / ((v_max-v_min)/100) for a in dist_v1_check2]
         fig, ax = plt.subplots(1, 1)
+        ax.set_title("v check")
         ax.plot(np.linspace(v_min, v_max, 100), dist_v)
         ax.plot(np.linspace(v_min, v_max, 100), dist_v1_check, linestyle="--")
         ax.plot(np.linspace(v_min, v_max, 100), dist_v1_check2, linestyle="-.")
@@ -764,11 +792,12 @@ for iteration in range(1000):
         plt.show()
 
         # Check w1 and w1 from w1_v1 match
-        dist_w1_check = cj.readDist(w1_check)
+        dist_w1_check = cj.readDist(w1)
         dist_w1_check2 = cj.readDist(w2)
         dist_w1_check = [a / ((w_max-w_min)/100) for a in dist_w1_check]
         dist_w1_check2 = [a / ((w_max-w_min)/100) for a in dist_w1_check2]
         fig, ax = plt.subplots(1, 1)
+        ax.set_title("w check")
         ax.plot(np.linspace(w_min, w_max, 100), dist_w1_check)
         ax.plot(np.linspace(w_min, w_max, 100), dist_w1_check2, linestyle="--")
         ax.hist(mc_joint_neurons_prime[:,1], density=True, bins=100, range=[w_min,w_max], histtype='step')
