@@ -68,7 +68,7 @@ def plotDist3D(dist, res=(100,100,100)):
 
     plot3D(points, dist)
 
-timestep = 0.1
+timestep = 1.0
 
 def cond(y):
     E_l = -70.6
@@ -345,7 +345,7 @@ cj.diamond(v0, vw_vu_given_v, vwvu_given_vw_vu, joint_v0_vwvu)
 
 # Just via vw
 joint_v0_vw_vwvu = cj.newDist([v_min,cj.base(c_vw)[2],cj.base(c_vwvu)[2]],[(v_max-v_min),cj.size(c_vw)[2],cj.size(c_vwvu)[2]],[v_res,res,res], [a for a in np.zeros(v_res*res*res)])
-#cj.joint3D(joint_v0_vw, 1, vwvu_given_vw, joint_v0_vw_vwvu)
+cj.joint3D(joint_v0_vw, 1, vwvu_given_vw, joint_v0_vw_vwvu)
 #cj.marginal(joint_v0_vw_vwvu, 1, joint_v0_vwvu)
 
 
