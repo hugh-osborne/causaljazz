@@ -68,7 +68,7 @@ def plotDist3D(dist, res=(100,100,100)):
 
     plot3D(points, dist)
 
-timestep = 1.0
+timestep = 0.1
 
 def cond(y):
     E_l = -70.6
@@ -243,9 +243,33 @@ joint_u0_uI = cj.newDist([u_min,uI_min],[(u_max-u_min),(uI_max-uI_min)],[u_res,I
 
 cj.joint2Di(w0, wI, joint_w0_wI)
 cj.joint2Di(u0, uI, joint_u0_uI)
+num_neurons = 50000
+
+w_inputs = np.array([[poisson.rvs(w_rate*timestep)*epsp] for a in range(num_neurons)])
+u_inputs = np.array([[poisson.rvs(u_rate*timestep)*ipsp] for a in range(num_neurons)])
+
+mc_neurons = np.array([[norm.rvs(-70.6, 2.4, 1)[0],norm.rvs(15.0, 2.4, 1)[0],norm.rvs(15.0, 2.4, 1)[0]] for a in range(num_neurons)])
+
+dist_w0_check = cj.readDist(w0)
+dist_w0_check = [a / ((w_max-w_min)/w_res) for a in dist_w0_check]
+fig, ax = plt.subplots(1, 1)
+ax.plot(np.linspace(w_min, w_max, w_res), dist_w0_check)
+ax.hist(mc_neurons[:,1], density=True, bins=500, range=[w_min,w_max], histtype='step')
+fig.tight_layout()
+plt.show()
+
+
+dist_w0_check = cj.readDist(v0)
+dist_w0_check = [a / ((v_max-v_min)/v_res) for a in dist_w0_check]
+fig, ax = plt.subplots(1, 1)
+ax.plot(np.linspace(v_min, v_max, v_res), dist_w0_check)
+ax.hist(mc_neurons[:,0], density=True, bins=500, range=[v_min,v_max], histtype='step')
+fig.tight_layout()
+plt.show()
 
 cj.collider(joint_w0_wI, [0,1], c_w_prime, joint_w0_wI_w1)
 cj.collider(joint_u0_uI, [0,1], c_u_prime, joint_u0_uI_u1)
+
 
 marginal_wI_w1 = cj.newDist([wI_min,w_min],[(wI_max-wI_min),(w_max-w_min)],[I_res,w_res],[a for a in np.zeros(I_res*w_res)])
 marginal_uI_u1 = cj.newDist([uI_min,u_min],[(uI_max-uI_min),(u_max-u_min)],[I_res,u_res],[a for a in np.zeros(I_res*u_res)])
@@ -257,6 +281,17 @@ cj.marginal(joint_u0_uI_u1, 0, marginal_uI_u1)
 
 cj.marginal(marginal_wI_w1, 0, w1)
 cj.marginal(marginal_uI_u1, 0, u1)
+
+mc_neurons_joint_w_wI_w1 = np.array([[mc_neurons[a][1],w_inputs[a][0],w_prime([mc_neurons[a][1],w_inputs[a][0]])] for a in range(num_neurons)])
+mc_neurons_joint_u_uI_u1 = np.array([[mc_neurons[a][2],u_inputs[a][0],u_prime([mc_neurons[a][2],u_inputs[a][0]])] for a in range(num_neurons)])
+
+dist_w0_check = cj.readDist(w1)
+dist_w0_check = [a / ((w_max-w_min)/w_res) for a in dist_w0_check]
+fig, ax = plt.subplots(1, 1)
+ax.plot(np.linspace(w_min, w_max, w_res), dist_w0_check)
+ax.hist(mc_neurons_joint_w_wI_w1[:,2], density=True, bins=500, range=[w_min,w_max], histtype='step')
+fig.tight_layout()
+plt.show()
 
 marginal_w0_w1 = cj.newDist([w_min,w_min],[(w_max-w_min),(w_max-w_min)],[w_res,w_res],[a for a in np.zeros(w_res*w_res)])
 marginal_u0_u1 = cj.newDist([u_min,u_min],[(u_max-u_min),(u_max-u_min)],[u_res,u_res],[a for a in np.zeros(u_res*u_res)])
@@ -286,6 +321,25 @@ joint_v_vu = cj.newDist([v_min, cj.base(c_vu)[2]], [(v_max-v_min), cj.size(c_vu)
 cj.marginal(joint_v_w_vw, 1, joint_v_vw)
 cj.marginal(joint_v_u_vu, 1, joint_v_vu)
 
+vw_t = cj.newDist([cj.base(c_vw)[2]], [cj.size(c_vw)[2]], [res], [a for a in np.zeros(res)])
+
+cj.marginal(joint_v_vw, 0, vw_t)
+
+
+mc_neurons_joint_v_w_vw = np.array([[mc_neurons[a][0],mc_neurons[a][1],vw([mc_neurons[a][0],mc_neurons[a][1]])] for a in range(num_neurons)])
+mc_neurons_joint_v_u_vu = np.array([[mc_neurons[a][0],mc_neurons[a][2],vu([mc_neurons[a][0],mc_neurons[a][2]])] for a in range(num_neurons)])
+
+mc_neurons_joint_vw_vu = np.array([[mc_neurons_joint_v_w_vw[a][2],mc_neurons_joint_v_u_vu[a][2]] for a in range(num_neurons)])
+
+dist_w0_check = cj.readDist(vw_t)
+dist_w0_check = [a / (cj.size(c_vw)[2]/res) for a in dist_w0_check]
+fig, ax = plt.subplots(1, 1)
+ax.set_title("vw")
+ax.plot(np.linspace(cj.base(c_vw)[2], cj.base(c_vw)[2]+cj.size(c_vw)[2], res), dist_w0_check)
+ax.hist(mc_neurons_joint_v_w_vw[:,2], density=True, bins=500, range=[cj.base(c_vw)[2],cj.base(c_vw)[2]+cj.size(c_vw)[2]], histtype='step')
+fig.tight_layout()
+plt.show()
+
 vw_given_v = cj.newDist([v_min, cj.base(c_vw)[2]], [(v_max-v_min), cj.size(c_vw)[2]], [v_res,res], [a for a in np.zeros(v_res*res)])
 vu_given_v = cj.newDist([v_min, cj.base(c_vu)[2]], [(v_max-v_min), cj.size(c_vu)[2]], [v_res,res], [a for a in np.zeros(v_res*res)])
 
@@ -303,6 +357,7 @@ cj.collider(joint_vw_vu, [0,1], c_vwvu, joint_vw_vu_vwvu)
 
 joint_v0_vw = cj.newDist([v_min,cj.base(c_vw)[2]],[(v_max-v_min),cj.size(c_vw)[2]],[v_res,res], [a for a in np.zeros(v_res*res)])
 cj.joint2D(v0, 0, vw_given_v, joint_v0_vw)
+cj.rescale(joint_v0_vw)
 
 joint_v0_vu = cj.newDist([v_min,cj.base(c_vu)[2]],[(v_max-v_min),cj.size(c_vu)[2]],[v_res,res], [a for a in np.zeros(v_res*res)])
 cj.joint2D(v0, 0, vu_given_v, joint_v0_vu)
@@ -319,6 +374,9 @@ marginal_vu = cj.newDist([cj.base(c_vu)[2]],[cj.size(c_vu)[2]],[res], [a for a i
 cj.marginal(joint_vw_vu_vwvu, 0, marginal_vu_vwvu)
 cj.marginal(marginal_vu_vwvu, 1, marginal_vu)
 
+cj.rescale(joint_vw_vu_vwvu)
+cj.rescale(marginal_vu_vwvu)
+
 vwvu_given_vw = cj.newDist([cj.base(c_vw)[2],cj.base(c_vwvu)[2]],[cj.size(c_vw)[2],cj.size(c_vwvu)[2]],[res,res], [a for a in np.zeros(res*res)])
 cj.conditional(marginal_vw_vwvu, [0], marginal_vw, vwvu_given_vw)
 
@@ -330,10 +388,23 @@ v1 = cj.newDist([v_min],[(v_max-v_min)],[v_res],[a for a in np.zeros(v_res)])
 
 marginal_vwvu = cj.newDist([cj.base(c_vwvu)[2]],[cj.size(c_vwvu)[2]],[res], [a for a in np.zeros(res)])
 joint_v0_vwvu = cj.newDist([v_min,cj.base(c_vwvu)[2]],[(v_max-v_min),cj.size(c_vwvu)[2]],[v_res,res], [a for a in np.zeros(v_res*res)])
+joint_v0_vwvu_check = cj.newDist([v_min,cj.base(c_vwvu)[2]],[(v_max-v_min),cj.size(c_vwvu)[2]],[v_res,res], [a for a in np.zeros(v_res*res)])
 
 # Independent v0 and vwvu
 cj.marginal(marginal_vw_vwvu, 0, marginal_vwvu)
 #cj.joint2Di(v0, marginal_vwvu, joint_v0_vwvu)
+
+mc_neurons_joint_vw_vu_vwvu = np.array([[mc_neurons_joint_v_w_vw[a][2],mc_neurons_joint_v_u_vu[a][2],vwvu([mc_neurons_joint_v_w_vw[a][2],mc_neurons_joint_v_u_vu[a][2]])] for a in range(num_neurons)])
+
+
+dist_w0_check = cj.readDist(marginal_vwvu)
+dist_w0_check = [a / (cj.size(c_vwvu)[2]/res) for a in dist_w0_check]
+fig, ax = plt.subplots(1, 1)
+ax.set_title("vwvu")
+ax.plot(np.linspace(cj.base(c_vwvu)[2], cj.base(c_vwvu)[2]+cj.size(c_vwvu)[2], res), dist_w0_check)
+ax.hist(mc_neurons_joint_vw_vu_vwvu[:,2], density=True, bins=500, range=[cj.base(c_vwvu)[2],cj.base(c_vwvu)[2]+cj.size(c_vwvu)[2]], histtype='step')
+fig.tight_layout()
+plt.show()
 
 # Dependent v0 and vwvu
 vw_vu_given_v = cj.newDist([v_min,cj.base(c_vw)[2],cj.base(c_vu)[2]],[(v_max-v_min),cj.size(c_vw)[2],cj.size(c_vu)[2]],[v_res,res,res], [a for a in np.zeros(v_res*res*res)])
@@ -346,7 +417,14 @@ cj.diamond(v0, vw_vu_given_v, vwvu_given_vw_vu, joint_v0_vwvu)
 # Just via vw
 joint_v0_vw_vwvu = cj.newDist([v_min,cj.base(c_vw)[2],cj.base(c_vwvu)[2]],[(v_max-v_min),cj.size(c_vw)[2],cj.size(c_vwvu)[2]],[v_res,res,res], [a for a in np.zeros(v_res*res*res)])
 cj.joint3D(joint_v0_vw, 1, vwvu_given_vw, joint_v0_vw_vwvu)
-#cj.marginal(joint_v0_vw_vwvu, 1, joint_v0_vwvu)
+cj.marginal(joint_v0_vw_vwvu, 1, joint_v0_vwvu_check)
+
+cj.rescale(joint_v0_vwvu)
+cj.rescale(joint_v0_vwvu_check)
+
+#plotDist2D(joint_v0_vwvu)
+#plotDist2D(joint_v0_vwvu_check)
+#plt.show()
 
 
 ######
@@ -354,10 +432,22 @@ cj.joint3D(joint_v0_vw, 1, vwvu_given_vw, joint_v0_vw_vwvu)
 joint_v0_vwvu_v1 = cj.newDist([v_min,cj.base(c_vwvu)[2],v_min],[(v_max-v_min),cj.size(c_vwvu)[2],(v_max-v_min)],[v_res,res,v_res], [a for a in np.zeros(v_res*res*v_res)])
 
 cj.collider(joint_v0_vwvu, [0,1], c_v_prime, joint_v0_vwvu_v1)
-
+cj.rescale(joint_v0_vwvu_v1)
 cj.marginal(joint_v0_vwvu_v1, 0, marginal_vwvu_v1)
 cj.marginal(marginal_vwvu_v1, 0, v1)
+cj.rescale(v1)
 
+
+mc_neurons_joint_v0_vwvu_v1 = np.array([[mc_neurons[a][0],mc_neurons_joint_vw_vu_vwvu[a][2],v_prime([mc_neurons[a][0],mc_neurons_joint_vw_vu_vwvu[a][2]])] for a in range(num_neurons)])
+
+dist_w0_check = cj.readDist(v1)
+dist_w0_check = [a / ((v_max-v_min)/v_res) for a in dist_w0_check]
+fig, ax = plt.subplots(1, 1)
+ax.set_title("v1")
+ax.plot(np.linspace(v_min,v_max, v_res), dist_w0_check)
+ax.hist(mc_neurons_joint_v0_vwvu_v1[:,2], density=True, bins=500, range=[v_min,v_max], histtype='step')
+fig.tight_layout()
+plt.show()
 
 v1_given_w0 = cj.newDist([w_min, v_min], [(w_max-w_min), (v_max-v_min)], [w_res,v_res], [a for a in np.zeros(w_res*v_res)])
 
@@ -426,6 +516,49 @@ cj.marginal(joint_v1_w1, 0, w1_check)
 u1_check = cj.newDist([u_min],[(u_max-u_min)],[u_res],[a for a in np.zeros(u_res)])
 cj.marginal(joint_v1_u1, 0, u1_check)
 
+mc_neurons_prime = np.array([[mc_neurons_joint_v0_vwvu_v1[a][2],mc_neurons_joint_w_wI_w1[a][2],mc_neurons_joint_u_uI_u1[a][2]] for a in range(num_neurons)])
+w_inputs = np.array([[poisson.rvs(w_rate*timestep)*epsp] for a in range(num_neurons)])
+u_inputs = np.array([[poisson.rvs(u_rate*timestep)*ipsp] for a in range(num_neurons)])
+
+dist_w0_check = cj.readDist(v1_check)
+dist_w0_check = [a / ((v_max-v_min)/v_res) for a in dist_w0_check]
+fig, ax = plt.subplots(1, 1)
+ax.set_title("v1")
+ax.plot(np.linspace(v_min,v_max, v_res), dist_w0_check)
+ax.hist(mc_neurons_prime[:,0], density=True, bins=500, range=[v_min,v_max], histtype='step')
+fig.tight_layout()
+plt.show()
+
+dist_w0_check = cj.readDist(w1_check)
+dist_w0_check = [a / ((w_max-w_min)/w_res) for a in dist_w0_check]
+fig, ax = plt.subplots(1, 1)
+ax.set_title("w1")
+ax.plot(np.linspace(w_min,w_max, w_res), dist_w0_check)
+ax.hist(mc_neurons_prime[:,1], density=True, bins=500, range=[w_min,w_max], histtype='step')
+fig.tight_layout()
+plt.show()
+
+cj.collider(joint_v1_w1, [0,1], c_vw, joint_v_w_vw)
+cj.collider(joint_v1_u1, [0,1], c_vu, joint_v_u_vu)
+
+cj.marginal(joint_v_w_vw, 1, joint_v_vw)
+cj.marginal(joint_v_u_vu, 1, joint_v_vu)
+cj.marginal(joint_v_vw, 0, vw_t)
+
+
+mc_neurons_joint_v_w_vw = np.array([[mc_neurons_prime[a][0],mc_neurons_prime[a][1],vw([mc_neurons_prime[a][0],mc_neurons_prime[a][1]])] for a in range(num_neurons)])
+mc_neurons_joint_v_u_vu = np.array([[mc_neurons_prime[a][0],mc_neurons_prime[a][2],vu([mc_neurons_prime[a][0],mc_neurons_prime[a][2]])] for a in range(num_neurons)])
+
+mc_neurons_joint_vw_vu = np.array([[mc_neurons_joint_v_w_vw[a][2],mc_neurons_joint_v_u_vu[a][2]] for a in range(num_neurons)])
+
+dist_w0_check = cj.readDist(vw_t)
+dist_w0_check = [a / (cj.size(c_vw)[2]/res) for a in dist_w0_check]
+fig, ax = plt.subplots(1, 1)
+ax.set_title("vw")
+ax.plot(np.linspace(cj.base(c_vw)[2], cj.base(c_vw)[2]+cj.size(c_vw)[2], res), dist_w0_check)
+ax.hist(mc_neurons_joint_v_w_vw[:,2], density=True, bins=500, range=[cj.base(c_vw)[2],cj.base(c_vw)[2]+cj.size(c_vw)[2]], histtype='step')
+fig.tight_layout()
+plt.show()
 
 
 # Joint Monte Carlo
@@ -443,117 +576,7 @@ for nn in range(len(mc_joint_neurons_prime)):
         mc_joint_neurons_prime[nn][1] += epsp*poisson.rvs(w_rate*timestep) # override w
         mc_joint_neurons_prime[nn][2] += ipsp*poisson.rvs(u_rate*timestep)
 
-
-# Monte carlo version
-
-w_inputs = np.array([[poisson.rvs(w_rate*timestep)*epsp] for a in range(num_neurons)])
-u_inputs = np.array([[poisson.rvs(u_rate*timestep)*ipsp] for a in range(num_neurons)])
-
-mc_neurons = np.array([[norm.rvs(-70.6, 2.4, 1)[0],norm.rvs(15.0, 2.4, 1)[0],norm.rvs(15.0, 2.4, 1)[0]] for a in range(num_neurons)])
-
-mc_neurons_joint_w_wI_w1 = np.array([[mc_neurons[a][1],w_inputs[a][0],w_prime([mc_neurons[a][1],w_inputs[a][0]])] for a in range(num_neurons)])
-mc_neurons_joint_u_uI_u1 = np.array([[mc_neurons[a][2],u_inputs[a][0],u_prime([mc_neurons[a][2],u_inputs[a][0]])] for a in range(num_neurons)])
-
-#mc_neurons_joint_w_wI_w1 = np.array([[mc_neurons[a][1],w_inputs[a][0],mc_neurons[a][1] + timestep*(-(mc_neurons[a][1]) / 10.49) + poisson.rvs(w_rate*timestep)*epsp] for a in range(num_neurons)])
-#mc_neurons_joint_u_uI_u1 = np.array([[mc_neurons[a][2],u_inputs[a][0],mc_neurons[a][2] + timestep*(-(mc_neurons[a][2]) / 10.49) + poisson.rvs(u_rate*timestep)*ipsp] for a in range(num_neurons)])
-
-dist_w0 = cj.readDist(w0)
-dist_w1 = cj.readDist(w1)
-dist_w0 = [a / ((w_max-w_min)/100) for a in dist_w0]
-dist_w1 = [a / ((w_max-w_min)/100) for a in dist_w1]
-fig, ax = plt.subplots(1, 1)
-ax.plot(np.linspace(w_min, w_max, 100), dist_w0)
-ax.plot(np.linspace(w_min, w_max, 100), dist_w1)
-ax.hist(mc_neurons_joint_w_wI_w1[:,0], density=True, bins=100, range=[w_min,w_max], histtype='step')
-ax.hist(mc_neurons_joint_w_wI_w1[:,2], density=True, bins=100, range=[w_min,w_max], histtype='step')
-fig.tight_layout()
-plt.show()
-
-mc_neurons_joint_v_w_vw = np.array([[mc_neurons[a][0],mc_neurons[a][1],vw([mc_neurons[a][0],mc_neurons[a][1]])] for a in range(num_neurons)])
-mc_neurons_joint_v_u_vu = np.array([[mc_neurons[a][0],mc_neurons[a][2],vu([mc_neurons[a][0],mc_neurons[a][2]])] for a in range(num_neurons)])
-
-mc_neurons_joint_vw_vu = np.array([[mc_neurons_joint_v_w_vw[a][2],mc_neurons_joint_v_u_vu[a][2]] for a in range(num_neurons)])
-
-marginal_vw = cj.newDist([cj.base(c_vw)[2]],[cj.size(c_vw)[2]],[res], [a for a in np.zeros(res)])
-cj.marginal(joint_vw_vu, 1, marginal_vw)
-
-dist_read = cj.readDist(marginal_vw)
-dist_read = [a / (cj.size(c_vw)[2]/100) for a in dist_read]
-fig, ax = plt.subplots(1, 1)
-ax.plot(np.linspace(cj.base(c_vw)[2], cj.base(c_vw)[2]+cj.size(c_vw)[2], 100), dist_read)
-ax.hist(mc_neurons_joint_vw_vu[:,0], density=True, bins=100, range=[cj.base(c_vw)[2],cj.base(c_vw)[2]+cj.size(c_vw)[2]], histtype='step')
-fig.tight_layout()
-
-marginal_vu = cj.newDist([cj.base(c_vu)[2]],[cj.size(c_vu)[2]],[res], [a for a in np.zeros(res)])
-cj.marginal(joint_vw_vu, 0, marginal_vu)
-
-dist_read = cj.readDist(marginal_vu)
-dist_read = [a / (cj.size(c_vu)[2]/100) for a in dist_read]
-fig, ax = plt.subplots(1, 1)
-ax.plot(np.linspace(cj.base(c_vu)[2], cj.base(c_vu)[2]+cj.size(c_vu)[2], 100), dist_read)
-ax.hist(mc_neurons_joint_vw_vu[:,1], density=True, bins=100, range=[cj.base(c_vu)[2],cj.base(c_vu)[2]+cj.size(c_vu)[2]], histtype='step')
-fig.tight_layout()
-plt.show()
-
-mc_neurons_joint_vw_vu_vwvu = np.array([[mc_neurons_joint_v_w_vw[a][2],mc_neurons_joint_v_u_vu[a][2],vwvu([mc_neurons_joint_v_w_vw[a][2],mc_neurons_joint_v_u_vu[a][2]])] for a in range(num_neurons)])
-
-dist_vwvu = cj.readDist(marginal_vwvu)
-dist_vwvu = [a / (cj.size(c_vwvu)[2]/100) for a in dist_vwvu]
-fig, ax = plt.subplots(1, 1)
-ax.plot(np.linspace(cj.base(c_vwvu)[2], cj.base(c_vwvu)[2]+cj.size(c_vwvu)[2], 100), dist_vwvu)
-ax.hist(mc_neurons_joint_vw_vu_vwvu[:,2], density=True, bins=100, range=[cj.base(c_vwvu)[2],cj.base(c_vwvu)[2]+cj.size(c_vwvu)[2]], histtype='step')
-fig.tight_layout()
-plt.show()
-
-mc_neurons_joint_v0_vwvu_v1 = np.array([[mc_neurons[a][0],mc_neurons_joint_vw_vu_vwvu[a][2],v_prime([mc_neurons[a][0],mc_neurons_joint_vw_vu_vwvu[a][2]])] for a in range(num_neurons)])
-
-# update neurons to new time step and update inputs
-
-mc_neurons_prime = np.array([[mc_neurons_joint_v0_vwvu_v1[a][2],mc_neurons_joint_w_wI_w1[a][2],mc_neurons_joint_u_uI_u1[a][2]] for a in range(num_neurons)])
-w_inputs = np.array([[poisson.rvs(w_rate*timestep)*epsp] for a in range(num_neurons)])
-u_inputs = np.array([[poisson.rvs(u_rate*timestep)*ipsp] for a in range(num_neurons)])
-
-dist_v0 = cj.readDist(v0)
-dist_v1 = cj.readDist(v1)
-dist_v0 = [a / ((v_max-v_min)/100) for a in dist_v0]
-dist_v1 = [a / ((v_max-v_min)/100) for a in dist_v1]
-fig, ax = plt.subplots(1, 1)
-ax.plot(np.linspace(v_min, v_max, 100), dist_v0)
-ax.plot(np.linspace(v_min, v_max, 100), dist_v1)
-ax.hist(mc_neurons_joint_v0_vwvu_v1[:,0], density=True, bins=100, range=[v_min,v_max], histtype='step')
-ax.hist(mc_neurons_joint_v0_vwvu_v1[:,2], density=True, bins=100, range=[v_min,v_max], histtype='step')
-ax.hist(mc_joint_neurons[:,0], density=True, bins=100, range=[v_min,v_max], histtype='step')
-ax.hist(mc_joint_neurons_prime[:,0], density=True, bins=100, range=[v_min,v_max], histtype='step')
-fig.tight_layout()
-plt.show()
-
-# Check v1 from vwvu_v1 and v1 from w1_v1 match
-dist_v1_check = cj.readDist(v1_check)
-dist_v1_check2 = cj.readDist(v1_check2)
-dist_v1_check = [a / ((v_max-v_min)/100) for a in dist_v1_check]
-dist_v1_check2 = [a / ((v_max-v_min)/100) for a in dist_v1_check2]
-fig, ax = plt.subplots(1, 1)
-ax.plot(np.linspace(v_min, v_max, 100), dist_v1)
-ax.plot(np.linspace(v_min, v_max, 100), dist_v1_check, linestyle="--")
-ax.plot(np.linspace(v_min, v_max, 100), dist_v1_check2, linestyle="-.")
-ax.hist(mc_joint_neurons_prime[:,0], density=True, bins=100, range=[v_min,v_max], histtype='step')
-ax.hist(mc_neurons_prime[:,0], density=True, bins=100, range=[v_min,v_max], histtype='step')
-fig.tight_layout()
-plt.show()
-
-# Check w1 and w1 from w1_v1 match
-dist_w1_check = cj.readDist(w1_check)
-dist_w1_check2 = cj.readDist(w1)
-dist_w1_check = [a / ((w_max-w_min)/100) for a in dist_w1_check]
-dist_w1_check2 = [a / ((w_max-w_min)/100) for a in dist_w1_check2]
-fig, ax = plt.subplots(1, 1)
-ax.plot(np.linspace(w_min, w_max, 100), dist_w1_check)
-ax.plot(np.linspace(w_min, w_max, 100), dist_w1_check2, linestyle="--")
-ax.hist(mc_joint_neurons_prime[:,1], density=True, bins=100, range=[w_min,w_max], histtype='step')
-ax.hist(mc_neurons_prime[:,1], density=True, bins=100, range=[w_min,w_max], histtype='step')
-fig.tight_layout()
-plt.show()
-
+        
 # Timestep 1 seems fine so far. Now to start the loop.
 
 v2 = cj.newDist([v_min],[(v_max-v_min)],[v_res],[a for a in np.zeros(v_res)])
@@ -627,6 +650,8 @@ for iteration in range(1000):
     cj.conditional(joint_v_vw_vu, [0], v1, vw_vu_given_v)
     cj.conditional(joint_vw_vu_vwvu, [0,1], joint_vw_vu, vwvu_given_vw_vu)
     cj.diamond(v1, vw_vu_given_v, vwvu_given_vw_vu, joint_v0_vwvu)
+
+    cj.rescale(joint_v0_vwvu)
     
     cj.collider(joint_v0_vwvu, [0,1], c_v_prime, joint_v0_vwvu_v1)
 
@@ -659,29 +684,42 @@ for iteration in range(1000):
     # Now to calculate the new joint v,w and joint v,u
 
     cj.marginal(joint_v_w_vw, 0, marginal_w0_vw)
+    cj.rescale(marginal_w0_vw)
     cj.joint3D(marginal_w0_vw, 1, vwvu_given_vw, joint_w0_vw_vwvu)
+    cj.rescale(joint_w0_vw_vwvu)
     
     cj.marginal(joint_w0_vw_vwvu, 1, marginal_w0_vwvu)
+    cj.rescale(marginal_w0_vwvu)
     
     cj.marginal(marginal_vwvu_v1, 1, marginal_vwvu)
+    cj.rescale(marginal_vwvu)
     cj.conditional(marginal_vwvu_v1, [0], marginal_vwvu, v1_given_vwvu)
     
     cj.joint3D(marginal_w0_vwvu, 1, v1_given_vwvu, joint_w0_vwvu_v1)
+    cj.rescale(joint_w0_vwvu_v1)
     cj.marginal(joint_w0_vwvu_v1, 1, marginal_w0_v1)
+    cj.rescale(marginal_w0_v1)
     cj.conditional(marginal_w0_v1, [0], w1, v1_given_w0)
 
     cj.marginal(joint_v_u_vu, 0, marginal_u0_vu)
+    cj.rescale(marginal_u0_vu)
     cj.joint3D(marginal_u0_vu, 1, vwvu_given_vu, joint_u0_vu_vwvu)
+    cj.rescale(joint_u0_vu_vwvu)
     
     cj.marginal(joint_u0_vu_vwvu, 1, marginal_u0_vwvu)
+    cj.rescale(marginal_u0_vwvu)
     
     cj.joint3D(marginal_u0_vwvu, 1, v1_given_vwvu, joint_u0_vwvu_v1)
+    cj.rescale(joint_u0_vwvu_v1)
     cj.marginal(joint_u0_vwvu_v1, 1, marginal_u0_v1)
+    cj.rescale(marginal_u0_v1)
 
     cj.conditional(marginal_u0_v1, [0], u1, v1_given_u0)
 
     cj.fork(w1, 0, v1_given_w0, 0, w1_given_w0, joint_w0_v1_w1)
+    cj.rescale(joint_w0_v1_w1)
     cj.fork(u1, 0, v1_given_u0, 0, u1_given_u0, joint_u0_v1_u1)
+    cj.rescale(joint_u0_v1_u1)
 
     cj.marginal(joint_w0_v1_w1, 0, joint_v2_w2)
     cj.marginal(joint_u0_v1_u1, 0, joint_v2_u2)
@@ -807,11 +845,11 @@ for iteration in range(1000):
 
 
 
-    #cj.rescale(v2)
-    #cj.rescale(w2)
-    #cj.rescale(u2)
-    #cj.rescale(joint_v2_w2)
-    #cj.rescale(joint_v2_u2)
+    cj.rescale(v2)
+    cj.rescale(w2)
+    cj.rescale(u2)
+    cj.rescale(joint_v2_w2)
+    cj.rescale(joint_v2_u2)
 
     # Transfer v1,w1,u1 -> v0,w0,u0, transfer v2,w2,u2 -> v1,w1,u1
     cj.transfer(v1,v0)

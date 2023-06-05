@@ -762,8 +762,12 @@ vwvu_given_vw_vu = cj.newDist([cj.base(c_vw)[2],cj.base(c_vu)[2],cj.base(c_vwvu)
 joint_v1_vwvu = cj.newDist([v_min,cj.base(c_vwvu)[2]],[(v_max-v_min),cj.size(c_vwvu)[2]],[v_res,res], [a for a in np.zeros(v_res*res)])
 
 cj.conditional(joint_v_vw_vu, [0], v0, vw_vu_given_v)
+cj.rescale(vw_vu_given_v)
 cj.conditional(joint_vw_vu_vwvu, [0,1], joint_vw_vu, vwvu_given_vw_vu)
+cj.rescale(vwvu_given_vw_vu)
 cj.diamond(v0, vw_vu_given_v, vwvu_given_vw_vu, joint_v1_vwvu)
+
+cj.rescale(joint_v1_vwvu)
 
 # Later, we're actually going to need both sides of this diamond, we'll use vw to calculate v1 here
 
@@ -1130,11 +1134,11 @@ for iteration in range(1000):
         fig.tight_layout()
         plt.show()
 
-    #cj.rescale(v2)
-    #cj.rescale(w2)
-    #cj.rescale(u2)
-    #cj.rescale(joint_v2_w2)
-    #cj.rescale(joint_v2_u2)
+    cj.rescale(v2)
+    cj.rescale(w2)
+    cj.rescale(u2)
+    cj.rescale(joint_v2_w2)
+    cj.rescale(joint_v2_u2)
 
     # Transfer v1,w1,u1 -> v0,w0,u0, transfer v2,w2,u2 -> v1,w1,u1
     cj.transfer(v1,v0)
