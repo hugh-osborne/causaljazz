@@ -78,6 +78,7 @@ CudaGrid CudaGridGenerator::generateCudaGridFromFunction(std::vector<double> _ba
             }
 
             results[a] = out_value;
+            std::cout << start_point << " -> " << results[a] << "\n";
 
             if (a == 0) {
                 max = out_value;
@@ -275,7 +276,7 @@ CudaGrid CudaGridGenerator::generateCudaGridFromFunction(std::vector<double> _ba
     if (_base.size() == 1) { // 1D input
         std::vector<double> results(_res[0]);
         for (unsigned int a = 0; a < _res[0]; a++) {
-            double start_point = _base[0] + ((_dims[0] / _res[0]) * (a + 0.5));
+            double start_point = _base[0];
 
             // Build the list of values for the starting point to be sent to the python function
             PyObject* point_coord_list = PyList_New((Py_ssize_t)(1));
@@ -303,6 +304,7 @@ CudaGrid CudaGridGenerator::generateCudaGridFromFunction(std::vector<double> _ba
             }
 
             results[a] = out_value;
+            std::cout << start_point << " -> " << results[a] << "\n";
         }
 
         double out_base = output_base;
@@ -311,10 +313,16 @@ CudaGrid CudaGridGenerator::generateCudaGridFromFunction(std::vector<double> _ba
 
         std::vector<double> conditional_flattened(_res[0] * output_res);
 
-        for (unsigned int a = 0; a < _res[0]; a++) {
+        for (unsigned int a = 0; a < _res[0]-1; a++) {
             // Each point gets flattened to two cells in the out distribution
-            double hi_value = results[a] + (out_cell_width / 2.0);
-            double lo_value = results[a] - (out_cell_width / 2.0);
+            
+            double hi_value = results[a+1];
+            double lo_value = results[a];
+
+            if (results[a] > results[a + 1]) {
+                hi_value = results[a];
+                lo_value = results[a + 1];
+            }
 
             double hi_shifted = (hi_value - out_base) / out_cell_width;
             double lo_shifted = (lo_value - out_base) / out_cell_width;

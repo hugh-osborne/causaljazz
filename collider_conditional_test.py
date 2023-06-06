@@ -538,6 +538,8 @@ ax.hist(mc_neurons_prime[:,1], density=True, bins=500, range=[w_min,w_max], hist
 fig.tight_layout()
 plt.show()
 
+print(cj.base(joint_v1_w1), cj.size(joint_v1_w1), cj.base(c_vw), cj.size(c_vw), cj.base(joint_v_w_vw), cj.size(joint_v_w_vw))
+
 cj.collider(joint_v1_w1, [0,1], c_vw, joint_v_w_vw)
 cj.collider(joint_v1_u1, [0,1], c_vu, joint_v_u_vu)
 
