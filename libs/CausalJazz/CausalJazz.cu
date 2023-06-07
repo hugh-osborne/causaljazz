@@ -158,7 +158,7 @@ void CausalJazz::buildJointDistributionFromChain(CudaGrid* A, unsigned int given
 void CausalJazz::buildJointDistributionFromChain(CudaGrid* A, unsigned int givendimBA, CudaGrid* BgivenA, unsigned int givendimCB, CudaGrid* CgivenB, unsigned int out) {
 	unsigned int numBlocks = (grids[out].getTotalNumCells() + block_size - 1) / block_size;
 
-	if (givendimBA == 0 && givendimCB == 0) {
+	/*if (givendimBA == 0 && givendimCB == 0) {
 		GenerateJointDistributionFromABGivenACGivenB << <numBlocks, block_size >> > (
 			grids[out].getTotalNumCells(),
 			grids[out].getProbabilityMass(),
@@ -196,7 +196,7 @@ void CausalJazz::buildJointDistributionFromChain(CudaGrid* A, unsigned int given
 			A->getProbabilityMass(),
 			BgivenA->getProbabilityMass(),
 			CgivenB->getProbabilityMass());
-	}
+	}*/
 
 }
 
@@ -214,7 +214,7 @@ void CausalJazz::buildJointDistributionFromFork(CudaGrid* A, unsigned int givend
 			CgivenA->getRes()[1],
 			CgivenA->getProbabilityMass());
 	}
-	else if (givendimBA == 1 && givendimCA == 0) {
+	/*else if (givendimBA == 1 && givendimCA == 0) {
 		GenerateJointDistributionFromForkBgivenA << <numBlocks, block_size >> > (
 			grids[out].getTotalNumCells(),
 			grids[out].getProbabilityMass(),
@@ -246,7 +246,7 @@ void CausalJazz::buildJointDistributionFromFork(CudaGrid* A, unsigned int givend
 			BgivenA->getProbabilityMass(),
 			CgivenA->getRes()[1],
 			CgivenA->getProbabilityMass());
-	}
+	}*/
 	
 }
 
@@ -262,7 +262,7 @@ void CausalJazz::buildJointDistributionFromCollider(CudaGrid* AB, std::vector<un
 			AB->getProbabilityMass(),
 			CgivenAB->getProbabilityMass());
 	}
-	else if (givendims[0] == 0 && givendims[1] == 2) {
+	/*else if (givendims[0] == 0 && givendims[1] == 2) {
 		GenerateJointDistributionFromColliderGivenAC << <numBlocks, block_size >> > (
 			grids[out].getTotalNumCells(),
 			grids[out].getProbabilityMass(),
@@ -279,7 +279,7 @@ void CausalJazz::buildJointDistributionFromCollider(CudaGrid* AB, std::vector<un
 			AB->getRes()[1],
 			AB->getProbabilityMass(),
 			CgivenAB->getProbabilityMass());
-	}
+	}*/
 }
 
 void CausalJazz::buildMarginalDistribution(CudaGrid* A, unsigned int droppedDim, unsigned int out) {

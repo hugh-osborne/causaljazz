@@ -1059,6 +1059,8 @@ __global__ void GenerateMarginalB(
     }
 }
 
+#define EPS 0.000001
+
 // Result is A|BC
 __global__ void GenerateAGivenBC(
     inttype num_ABC_cells,
@@ -1076,7 +1078,7 @@ __global__ void GenerateAGivenBC(
         inttype C_joint = int(i / (A_res * B_res));
         inttype B_joint = int(modulo(i, A_res * B_res) / A_res);
 
-        if (BC[(C_joint * B_res) + B_joint] <= 0)
+        if (BC[(C_joint * B_res) + B_joint] <= EPS)
             out[i] = 0.0;
         else
             out[i] = ABC[i] / BC[(C_joint*B_res) + B_joint];
@@ -1100,7 +1102,7 @@ __global__ void GenerateBGivenAC(
         inttype C_joint = int(i / (A_res * B_res));
         inttype A_joint = modulo(i, A_res);
 
-        if (AC[(C_joint * B_res) + A_joint] <= 0)
+        if (AC[(C_joint * B_res) + A_joint] <= EPS)
             out[i] = 0.0;
         else
             out[i] = ABC[i] / AC[(C_joint * A_res) + A_joint];
@@ -1124,7 +1126,7 @@ __global__ void GenerateCGivenAB(
         inttype B_joint = int(modulo(i, A_res * B_res) / A_res);
         inttype A_joint = modulo(i, A_res);
 
-        if (AB[(B_joint * A_res) + A_joint] <= 0)
+        if (AB[(B_joint * A_res) + A_joint] <= EPS)
             out[i] = 0.0;
         else
             out[i] = ABC[i] / AB[(B_joint * A_res) + A_joint];
@@ -1147,7 +1149,7 @@ __global__ void GenerateABGivenC(
 
         inttype C_joint = int(i / (A_res * B_res));
 
-        if (C[C_joint] <= 0)
+        if (C[C_joint] <= EPS)
             out[i] = 0.0;
         else
             out[i] = ABC[i] / C[C_joint];
@@ -1170,7 +1172,7 @@ __global__ void GenerateACGivenB(
 
         inttype B_joint = int(modulo(i, A_res * B_res) / A_res);
 
-        if (B[B_joint] <= 0)
+        if (B[B_joint] <= EPS)
             out[i] = 0.0;
         else
             out[i] = ABC[i] / B[B_joint];
@@ -1192,7 +1194,7 @@ __global__ void GenerateBCGivenA(
     for (int i = index; i < num_ABC_cells; i += stride) {
 
         inttype A_joint = modulo(i, A_res);
-        if (A[A_joint] <= 0)
+        if (A[A_joint] <= EPS)
             out[i] = 0.0;
         else
             out[i] = ABC[i] / A[A_joint];
@@ -1214,7 +1216,7 @@ __global__ void GenerateAGivenB(
     for (int i = index; i < num_AB_cells; i += stride) {
 
         inttype B_joint = int(i / A_res);
-        if (B[B_joint] <= 0)
+        if (B[B_joint] <= EPS)
             out[i] = 0.0;
         else
             out[i] = AB[i] / B[B_joint];
@@ -1237,7 +1239,7 @@ __global__ void GenerateBGivenA(
 
         inttype A_joint = modulo(i, A_res);
 
-        if (A[A_joint] <= 0)
+        if (A[A_joint] <= EPS)
             out[i] = 0.0;
         else
             out[i] = AB[i] / A[A_joint];

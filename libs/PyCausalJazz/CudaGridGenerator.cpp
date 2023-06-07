@@ -98,10 +98,15 @@ CudaGrid CudaGridGenerator::generateCudaGridFromFunction(std::vector<double> _ba
 
         std::vector<double> conditional_flattened(_res[0] * output_res);
 
-        for (unsigned int a = 0; a < _res[0]; a++) {
+        for (unsigned int a = 0; a < _res[0]-1; a++) {
             // Each point gets flattened to two cells in the out distribution
-            double hi_value = results[a] + (out_cell_width / 2.0);
-            double lo_value = results[a] - (out_cell_width / 2.0);
+            double hi_value = results[a + 1];
+            double lo_value = results[a];
+
+            if (results[a] > results[a + 1]) {
+                hi_value = results[a];
+                lo_value = results[a + 1];
+            }
 
             double hi_shifted = (hi_value - out_base) / out_cell_width;
             double lo_shifted = (lo_value - out_base) / out_cell_width;
@@ -192,72 +197,58 @@ CudaGrid CudaGridGenerator::generateCudaGridFromFunction(std::vector<double> _ba
 
         std::vector<double> conditional_flattened(_res[0]*_res[1]*output_res);
 
+        srand((unsigned)time(NULL));
+
         for (unsigned int b = 0; b < _res[1]-1; b++) {
             for (unsigned int a = 0; a < _res[0] - 1; a++) {
-                // Each point gets flattened to two cells in the out distribution
-                double val_max = results[b][a];
-                double val_min = results[b][a];
 
-                if (val_max < results[b + 1][a])
-                    val_max = results[b + 1][a];
+                std::vector<unsigned int> counter(output_res);
 
-                if (val_max < results[b][a + 1])
-                    val_max = results[b][a + 1];
+                unsigned int num_points = 10;
+                for (unsigned int n = 0; n < num_points; n++) {
+                    std::vector<double> start_point(2);
 
-                if (val_max < results[b + 1][a + 1])
-                    val_max = results[b + 1][a + 1];
+                    start_point[0] = _base[0] + ((_dims[0] / _res[0]) * (a)) + ((_dims[0] / _res[0])*((double)rand() / (double)RAND_MAX));
+                    start_point[1] = _base[1] + ((_dims[1] / _res[1]) * (b)) + ((_dims[1] / _res[1]) * ((double)rand() / (double)RAND_MAX));
 
-                if (val_min > results[b + 1][a])
-                    val_min = results[b + 1][a];
+                    // Build the list of values for the starting point to be sent to the python function
+                    PyObject* point_coord_list = PyList_New((Py_ssize_t)(2));
 
-                if (val_min > results[b][a + 1])
-                    val_min = results[b][a + 1];
+                    std::vector<PyObject*> list_objects(2);
 
-                if (val_min > results[b + 1][a + 1])
-                    val_min = results[b + 1][a + 1];
-
-                double hi_value = val_max;
-                double lo_value = val_min;
-
-                double hi_shifted = (hi_value - out_base) / out_cell_width;
-                double lo_shifted = (lo_value - out_base) / out_cell_width;
-
-                int hi_out_cell = int(hi_shifted);
-                int lo_out_cell = int(lo_shifted);
-
-                if (hi_out_cell == lo_out_cell) {
-                    unsigned int hi_cell_id = a + (_res[0] * b) + (hi_out_cell * _res[0] * _res[1]);
-                    conditional_flattened[hi_cell_id] = 1.0;
-                }
-                else {
-                    unsigned int desired_out_cell = lo_out_cell;
-
-                    double prop = (((lo_out_cell + 1) * out_cell_width) + out_base - val_min) / (val_max - val_min);
-                    if (desired_out_cell >= (int)output_res)
-                        desired_out_cell = (int)output_res - 1;
-                    if (desired_out_cell < 0)
-                        desired_out_cell = 0;
-                    unsigned int lo_cell_id = a + (_res[0] * b) + (desired_out_cell * _res[0] * _res[1]);
-                    conditional_flattened[lo_cell_id] += prop;
-
-                    for (unsigned int c = lo_out_cell + 1; c < hi_out_cell; c++) {
-                        desired_out_cell = c;
-                        if (desired_out_cell >= (int)output_res)
-                            desired_out_cell = (int)output_res - 1;
-                        if (desired_out_cell < 0)
-                            desired_out_cell = 0;
-                        unsigned int lo_cell_id = a + (_res[0] * b) + (desired_out_cell * _res[0] * _res[1]);
-                        conditional_flattened[lo_cell_id] += out_cell_width / (val_max - val_min);
+                    for (unsigned int i = 0; i < 2; i++) {
+                        list_objects[i] = PyFloat_FromDouble(start_point[i]);
+                        PyList_SetItem(point_coord_list, i, list_objects[i]);
                     }
 
-                    desired_out_cell = hi_out_cell;
-                    prop = (val_max - (hi_out_cell * out_cell_width) - out_base) / (val_max - val_min);
-                    if (desired_out_cell >= (int)output_res)
-                        desired_out_cell = (int)output_res - 1;
-                    if (desired_out_cell < 0)
-                        desired_out_cell = 0;
-                    unsigned int hi_cell_id = a + (_res[0] * b) + (desired_out_cell * _res[0] * _res[1]);
-                    conditional_flattened[hi_cell_id] += prop;
+                    double out_value = 0;
+
+                    // Pass the start point to the python function and get an end point value
+                    PyObject* tuple = PyList_AsTuple(point_coord_list);
+                    if (python_func && PyCallable_Check(python_func))
+                    {
+                        PyObject* pass = Py_BuildValue("(O)", tuple);
+                        PyErr_Print();
+                        PyObject* pValue = PyObject_CallObject(python_func, pass);
+                        PyErr_Print();
+                        out_value = PyFloat_AsDouble(pValue);
+                    }
+                    else
+                    {
+                        std::cout << "ERROR: function.\n";
+                    }
+
+                    unsigned int out_cell = int((out_value - out_base) / out_cell_width);
+
+                    counter[out_cell]++;
+                }
+
+                for (unsigned int n = 0; n < output_res; n++) {
+                    if (counter[n] > 0) {
+                        unsigned int cell_id = a + (_res[0] * b) + (n * _res[0] * _res[1]);
+                        conditional_flattened[cell_id] = (double)counter[n] / (double)num_points;
+                    }
+                    
                 }
             }
         }
@@ -276,7 +267,7 @@ CudaGrid CudaGridGenerator::generateCudaGridFromFunction(std::vector<double> _ba
     if (_base.size() == 1) { // 1D input
         std::vector<double> results(_res[0]);
         for (unsigned int a = 0; a < _res[0]; a++) {
-            double start_point = _base[0];
+            double start_point = _base[0] + ((_dims[0] / _res[0]) * (a));
 
             // Build the list of values for the starting point to be sent to the python function
             PyObject* point_coord_list = PyList_New((Py_ssize_t)(1));
