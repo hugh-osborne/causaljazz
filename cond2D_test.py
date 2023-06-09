@@ -329,13 +329,8 @@ for iteration in range(1000):
     cj.marginal(joint_wn_wI_wnp1, 1, marginal_wn_wnp1)
     cj.marginal(marginal_wn_wnp1, 0, wnp1)
     cj.conditional(marginal_wn_wnp1, [0], wn, wnp1_given_wn)
-    # Update w2_given_w0
-    cj.joint3D(marginal_w0_wn, 1, wnp1_given_wn, joint_w0_wn_wnp1)
-    cj.marginal(joint_w0_wn_wnp1, 1, marginal_w0_wnp1)
-    cj.conditional(marginal_w0_wnp1, [0], w0, wnp1_given_w0)
-
-
-    #cj.joint2Di(v1, w1, joint_v1_w1) # independent
+    
+    cj.joint2Di(vn, wn, joint_vn_wn) # independent
     cj.collider(joint_vn_wn, [0,1], c_vw, joint_v_w_vw)
     cj.marginal(joint_v_w_vw, 1, joint_v_vw)
     cj.marginal(joint_v_vw, 0, vw_t)
@@ -377,16 +372,12 @@ for iteration in range(1000):
     
     cj.marginal(joint_v_w_vw, 1, marginal_vn_vw)
     cj.conditional(marginal_vw_vnp1, [0], vw_t, vnp1_given_vw)
-    cj.joint3D(marginal_vn_vw, 1, vnp1_given_vw, joint_vn_vw_vnp1)
-    cj.marginal(joint_vn_vw_vnp1, 1, joint_vn_vnp1)
-    cj.conditional(joint_vn_vnp1, [0], vn, vnp1_given_vn)
+    cj.joint3D(marginal_wn_vw, 1, vnp1_given_vw, joint_wn_vw_vnp1)
+    cj.marginal(joint_wn_vw_vnp1, 1, joint_wn_vnp1)
+    cj.conditional(joint_wn_vnp1, [0], wn, vnp1_given_wn)
 
-    cj.joint3D(joint_w0_vn, 1, vnp1_given_vn, joint_w0_vn_vnp1)
-    cj.marginal(joint_w0_vn_vnp1, 1, joint_w0_vnp1)
-    cj.conditional(joint_w0_vnp1, [0], w0, vnp1_given_w0)
-
-    cj.fork(w0, 0, vnp1_given_w0, 0, wnp1_given_w0, joint_w0_vnp1_wnp1)
-    cj.marginal(joint_w0_vnp1_wnp1, 0, joint_vnp1_wnp1)
+    cj.fork(wn, 0, vnp1_given_wn, 0, wnp1_given_wn, joint_wn_vnp1_wnp1)
+    cj.marginal(joint_wn_vnp1_wnp1, 0, joint_vnp1_wnp1)
 
     shuff1 = [a for a in range(num_neurons)]
     #random.shuffle(shuff1)
@@ -427,5 +418,3 @@ for iteration in range(1000):
     cj.transfer(vnp1,vn)
     cj.transfer(wnp1,wn)
     cj.transfer(joint_vnp1_wnp1, joint_vn_wn)
-    cj.transfer(marginal_w0_wnp1, marginal_w0_wn)
-    cj.transfer(joint_w0_vnp1, joint_w0_vn)
