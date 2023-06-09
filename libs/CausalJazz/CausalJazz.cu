@@ -158,7 +158,7 @@ void CausalJazz::buildJointDistributionFromChain(CudaGrid* A, unsigned int given
 void CausalJazz::buildJointDistributionFromChain(CudaGrid* A, unsigned int givendimBA, CudaGrid* BgivenA, unsigned int givendimCB, CudaGrid* CgivenB, unsigned int out) {
 	unsigned int numBlocks = (grids[out].getTotalNumCells() + block_size - 1) / block_size;
 
-	/*if (givendimBA == 0 && givendimCB == 0) {
+	if (givendimBA == 0 && givendimCB == 0) {
 		GenerateJointDistributionFromABGivenACGivenB << <numBlocks, block_size >> > (
 			grids[out].getTotalNumCells(),
 			grids[out].getProbabilityMass(),
@@ -196,7 +196,7 @@ void CausalJazz::buildJointDistributionFromChain(CudaGrid* A, unsigned int given
 			A->getProbabilityMass(),
 			BgivenA->getProbabilityMass(),
 			CgivenB->getProbabilityMass());
-	}*/
+	}
 
 }
 

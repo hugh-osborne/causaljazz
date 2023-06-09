@@ -864,9 +864,6 @@ for iteration in range(1000):
     u_inputs = np.array([[poisson.rvs(u_rate*timestep)*ipsp] for a in range(num_neurons)])
     
     
-
-    
-
     # plot
 
     if (iteration % 1 == 0) :

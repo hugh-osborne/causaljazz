@@ -70,6 +70,8 @@ def plotDist3D(dist, res=(100,100,100)):
 
 timestep = 1.0
 
+#### 2D chain tests
+
 def a_to_b(y):
     a = y[0]
     return a + 2  
@@ -117,3 +119,115 @@ for i in range(10):
 
 fig.tight_layout()
 plt.show()
+
+
+##### 3D chain tests
+
+def x_to_y(y):
+    x = y[0]
+    return x + 2
+
+def y_to_z(y):
+    y = y[0]
+    return y + 2
+
+x_res = 100
+y_res = 100
+z_res = 100
+
+x_max = 50.0
+x_min = -50.0
+y_max = 50.0
+y_min = -50.0
+z_max = 50.0
+z_min = -50.0
+
+# Set up the starting distribution
+x = np.linspace(x_min, x_max, x_res)
+y = np.linspace(y_min, y_max, y_res)
+z = np.linspace(z_min, z_max, z_res)
+    
+xpdf = [a * ((x_max-x_min)/x_res) for a in norm.pdf(x, -25, 2.4)]
+
+xpdf = [a / sum(xpdf) for a in xpdf]
+
+x0 = cj.newDist([x_min],[(x_max-x_min)],[x_res],[a for a in xpdf])
+
+c_x_to_y = cj.function([x_min],[(x_max-x_min)],[x_res], x_to_y, y_res)
+c_y_to_z = cj.function([cj.base(c_x_to_y)[1]],[cj.size(c_x_to_y)[1]],[y_res], y_to_z, z_res)
+
+joint_x_y_z = cj.newDist([x_min,cj.base(c_x_to_y)[1],cj.base(c_y_to_z)[1]],[(x_max-x_min),cj.size(c_x_to_y)[1],cj.size(c_y_to_z)[1]],[x_res,y_res,z_res], [a for a in np.zeros(x_res*y_res*z_res)])
+
+cj.chain(x0, 0, c_x_to_y, 0, c_y_to_z, joint_x_y_z)
+
+marginal_y_z = cj.newDist([cj.base(c_x_to_y)[1],cj.base(c_y_to_z)[1]],[cj.size(c_x_to_y)[1],cj.size(c_y_to_z)[1]],[y_res,z_res], [a for a in np.zeros(y_res*z_res)])
+marginal_x_z = cj.newDist([x_min,cj.base(c_y_to_z)[1]],[(x_max-x_min),cj.size(c_y_to_z)[1]],[x_res,z_res], [a for a in np.zeros(x_res*z_res)])
+marginal_y = cj.newDist([cj.base(c_x_to_y)[1]],[cj.size(c_x_to_y)[1]],[y_res], [a for a in np.zeros(y_res)])
+marginal_z = cj.newDist([cj.base(c_y_to_z)[1]],[cj.size(c_y_to_z)[1]],[z_res], [a for a in np.zeros(z_res)])
+
+cj.marginal(joint_x_y_z, 0, marginal_y_z)
+cj.marginal(joint_x_y_z, 1, marginal_x_z)
+cj.marginal(marginal_y_z, 1, marginal_y)
+cj.marginal(marginal_y_z, 0, marginal_z)
+
+joint_x_y_alt = cj.newDist([x_min,cj.base(c_x_to_y)[1]],[(x_max-x_min),cj.size(c_x_to_y)[1]],[x_res,y_res], [a for a in np.zeros(x_res*y_res)])
+joint_x_y_z_alt = cj.newDist([x_min,cj.base(c_x_to_y)[1],cj.base(c_y_to_z)[1]],[(x_max-x_min),cj.size(c_x_to_y)[1],cj.size(c_y_to_z)[1]],[x_res,y_res,z_res], [a for a in np.zeros(x_res*y_res*z_res)])
+
+cj.joint2D(x0, 0, c_x_to_y, joint_x_y_alt)
+cj.joint3D(joint_x_y_alt, 1, c_y_to_z, joint_x_y_z_alt)
+
+marginal_y_z_alt = cj.newDist([cj.base(c_x_to_y)[1],cj.base(c_y_to_z)[1]],[cj.size(c_x_to_y)[1],cj.size(c_y_to_z)[1]],[y_res,z_res], [a for a in np.zeros(y_res*z_res)])
+marginal_x_z_alt = cj.newDist([x_min,cj.base(c_y_to_z)[1]],[(x_max-x_min),cj.size(c_y_to_z)[1]],[x_res,z_res], [a for a in np.zeros(x_res*z_res)])
+marginal_y_alt = cj.newDist([cj.base(c_x_to_y)[1]],[cj.size(c_x_to_y)[1]],[y_res], [a for a in np.zeros(y_res)])
+marginal_z_alt = cj.newDist([cj.base(c_y_to_z)[1]],[cj.size(c_y_to_z)[1]],[z_res], [a for a in np.zeros(z_res)])
+
+cj.marginal(joint_x_y_z_alt, 0, marginal_y_z_alt)
+cj.marginal(joint_x_y_z_alt, 1, marginal_x_z_alt)
+cj.marginal(marginal_y_z_alt, 1, marginal_y_alt)
+cj.marginal(marginal_y_z_alt, 0, marginal_z_alt)
+
+dist_marginal_y = cj.readDist(marginal_y)
+dist_marginal_z = cj.readDist(marginal_z)
+dist_marginal_y_alt = cj.readDist(marginal_y_alt)
+dist_marginal_z_alt = cj.readDist(marginal_z_alt)
+
+dist_x = cj.readDist(x0)
+
+fig, ax = plt.subplots(1, 1)
+ax.set_title("joint")
+ax.plot(np.linspace(x_min, x_max, x_res), dist_x)
+ax.plot(np.linspace(cj.base(c_x_to_y)[1], cj.base(c_x_to_y)[1]+cj.size(c_x_to_y)[1], y_res), dist_marginal_y)
+ax.plot(np.linspace(cj.base(c_x_to_y)[1], cj.base(c_x_to_y)[1]+cj.size(c_x_to_y)[1], y_res), dist_marginal_y_alt)
+ax.plot(np.linspace(cj.base(c_y_to_z)[1], cj.base(c_y_to_z)[1]+cj.size(c_y_to_z)[1], z_res), dist_marginal_z)
+ax.plot(np.linspace(cj.base(c_y_to_z)[1], cj.base(c_y_to_z)[1]+cj.size(c_y_to_z)[1], z_res), dist_marginal_z_alt)
+fig.tight_layout()
+plt.show()
+
+num_neurons = 100
+mc_xs = np.array([[norm.rvs(-25, 2.4, 1)[0]] for a in range(num_neurons)])
+mc_xs_ys = np.array([[mc_xs[a][0], x_to_y([mc_xs[a][0]])] for a in range(num_neurons)])
+mc_ys_zs = np.array([[mc_xs_ys[a][1], y_to_z([mc_xs_ys[a][1]])] for a in range(num_neurons)])
+mc_xs_zs = np.array([[mc_xs[a][0], mc_ys_zs[a][0]] for a in range(num_neurons)])
+
+plotDist2D(marginal_y_z_alt)
+
+fig, ax = plt.subplots(1, 1)
+ax.set_title("joint_ys_zs")
+ax.scatter(mc_ys_zs[:,0], mc_ys_zs[:,1])
+ax.set_xlim([y_min,y_max])
+ax.set_ylim([z_min,z_max])
+fig.tight_layout()
+plt.show()
+
+plotDist2D(marginal_x_z_alt)
+
+fig, ax = plt.subplots(1, 1)
+ax.set_title("joint_xs_zs")
+ax.scatter(mc_xs_zs[:,0], mc_xs_zs[:,1])
+ax.set_xlim([x_min,x_max])
+ax.set_ylim([z_min,z_max])
+fig.tight_layout()
+plt.show()
+
+#### Collider tests
+

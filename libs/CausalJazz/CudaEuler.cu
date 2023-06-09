@@ -1059,7 +1059,7 @@ __global__ void GenerateMarginalB(
     }
 }
 
-#define EPS 0.000001
+#define EPS 0.000000001
 
 // Result is A|BC
 __global__ void GenerateAGivenBC(
