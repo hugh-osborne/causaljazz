@@ -483,7 +483,10 @@ def vw(y):
     g_l = 0.03
     E_e = 0.0
 
-    return -(g_l*(v - E_l)) - (w * (v - E_e))
+    dt = 0.1
+    C = 281
+
+    return v + (dt/C)*(-(g_l*(v - E_l)) - (w * (v - E_e)))
 
 def vu(y):
     v = y[0]
@@ -491,19 +494,16 @@ def vu(y):
 
     E_i = -75
 
-    return  -u * (v - E_i)
+    dt = 0.1
+    C = 281
+
+    return (dt/C)*(-u * (v - E_i))
 
 def v_prime(y):
     vw = y[0]
     vu = y[1] 
-    
-    C = 281
-   
-    dt = 0.1
 
-    v_prime = (vw + vu) / C
-
-    return v + dt*v_prime
+    return vw + vu
 
 def v_threshold_reset(y):
     v = y[0]
@@ -741,6 +741,7 @@ v1_given_vu = cj.newDist([cj.base(c_vu)[2],v_min],[cj.size(c_vu)[2],(v_max-v_min
 
 cj.joint3D(marginal_vw_vr, 1, c_thres, joint_vw_vr_v1)
 cj.marginal(joint_vw_vr_v1, 1, marginal_vw_v1)
+cj.marginal(marginal_vw_v1, 0, v1)
 cj.conditional(marginal_vw_v1, [0], marginal_vw, v1_given_vw)
 
 cj.joint3D(marginal_vu_vr, 1, c_thres, joint_vu_vr_v1)
@@ -855,17 +856,18 @@ for iteration in range(1000):
 
     cj.marginal(joint_v_w_vw, 1, joint_v_vw)
     cj.marginal(joint_v_u_vu, 1, joint_v_vu)
-
+    
     cj.conditional(joint_v_vw, [0], v1, vw_given_v)
     cj.conditional(joint_v_vu, [0], v1, vu_given_v)
 
     cj.fork(v1, 0, vw_given_v, 0, vu_given_v, joint_v_vw_vu)
     cj.marginal(joint_v_vw_vu, 0, joint_vw_vu)
-
+    
     cj.collider(joint_vw_vu, [0,1], c_v_prime, joint_vw_vu_vr)
 
     cj.marginal(joint_vw_vu_vr, 1, marginal_vw_vr)
     cj.marginal(marginal_vw_vr, 0, vr)
+
     cj.marginal(marginal_vw_vr, 1, marginal_vw)
 
     cj.marginal(joint_vw_vu_vr, 0, marginal_vu_vr)
@@ -873,6 +875,7 @@ for iteration in range(1000):
 
     cj.joint3D(marginal_vw_vr, 1, c_thres, joint_vw_vr_v1)
     cj.marginal(joint_vw_vr_v1, 1, marginal_vw_v1)
+    cj.marginal(marginal_vw_v1, 0, v2)
     cj.conditional(marginal_vw_v1, [0], marginal_vw, v1_given_vw)
 
     cj.joint3D(marginal_vu_vr, 1, c_thres, joint_vu_vr_v1)
@@ -954,7 +957,7 @@ for iteration in range(1000):
     # The monte carlo hist function gives density not mass (booo)
     # so let's just convert to density here
     
-    if (iteration % 50 == 0) :
+    if (iteration % 1 == 0) :
         dist_v = cj.readDist(v0)
         dist_w = cj.readDist(w0)
         dist_u = cj.readDist(u0)
