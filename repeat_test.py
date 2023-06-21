@@ -121,6 +121,156 @@ fig.tight_layout()
 plt.show()
 
 
+##### conditional difference
+
+def a_to_b(y):
+    a = y[0]
+    return a + 10 
+
+a_max = 50.0
+a_min = -50.0
+b_max = 50.0
+b_min = -50.0
+
+a = np.linspace(a_min, a_max, a_res)
+b = np.linspace(b_min, b_max, b_res)
+
+apdf = [x * ((a_max-a_min)/a_res) for x in norm.pdf(a, -25, 2.4)]
+bpdf = [x * ((b_max-b_min)/b_res) for x in norm.pdf(b, 15.0, 2.4)]
+
+apdf2 = [x * ((a_max-a_min)/a_res) for x in norm.pdf(a, -2 , 0.4)]
+bpdf2 = [x * ((b_max-b_min)/b_res) for x in norm.pdf(b, -25.0, 0.4)]
+
+apdf = [apdf[x] + apdf2[x] for x in range(a_res)]
+bpdf = [bpdf[x] + bpdf2[x] for x in range(b_res)]
+
+apdf = [x / sum(apdf) for x in apdf]
+bpdf = [x / sum(bpdf) for x in bpdf]
+
+a0 = cj.newDist([a_min],[(a_max-a_min)],[a_res],[x for x in apdf])
+b0 = cj.newDist([b_min],[(b_max-b_min)],[b_res],[x for x in bpdf])
+
+joint_a_b = cj.newDist([a_min,b_min],[(a_max-a_min),(b_max-b_min)],[a_res,b_res],[a for a in np.zeros(a_res*b_res)])
+
+c_a_to_b = cj.boundedFunction([a_min],[(a_max-a_min)],[a_res], a_to_b, b_min, (b_max-b_min), b_res)
+
+cj.joint2Di(a0,b0, joint_a_b)
+#cj.joint2D(a0, 0, c_a_to_b, joint_a_b)
+
+a_given_b = cj.newDist([a_min,b_min],[(a_max-a_min),(b_max-b_min)],[a_res,b_res],[a for a in np.zeros(a_res*b_res)])
+
+cj.marginal(joint_a_b, 0, b0)
+cj.conditional(joint_a_b, [1], b0, a_given_b)
+
+plotDist2D(a_given_b)
+
+marginal_conditional_a = cj.newDist([a_min],[(a_max-a_min)],[a_res],[x for x in apdf])
+
+cj.marginal(a_given_b, 1, marginal_conditional_a)
+#cj.rescale(marginal_conditional_a)
+
+cj.marginal(joint_a_b, 1, a0)
+plotDist1D(a0)
+plotDist1D(b0)
+plotDist1D(marginal_conditional_a)
+plt.show()
+
+##### Multiple Dependencies test
+
+# We have P(A)P(B|A)P(C|A,B)P(D|B,C) and want to find P(A,E) without calculating the full joint probability. Possible?
+
+a_max = 50.0
+a_min = -50.0
+b_max = 50.0
+b_min = -50.0
+c_max = 50.0
+c_min = -50.0
+d_max = 50.0
+d_min = -50.0
+
+a_res = 100
+b_res = 100
+c_res = 100
+d_res = 100
+
+a = np.linspace(a_min, a_max, a_res)
+b = np.linspace(b_min, b_max, b_res)
+c = np.linspace(c_min, c_max, c_res)
+d = np.linspace(d_min, d_max, d_res)
+
+apdf = [x * ((a_max-a_min)/a_res) for x in norm.pdf(a, -25, 2.4)]
+
+apdf2 = [x * ((a_max-a_min)/a_res) for x in norm.pdf(a, -2 , 0.4)]
+
+apdf = [apdf[x] + apdf2[x] for x in range(a_res)]
+
+apdf = [x / sum(apdf) for x in apdf]
+
+a0 = cj.newDist([a_min],[(a_max-a_min)],[a_res],[x for x in apdf])
+
+def a_to_b(y):
+    a = y[0]
+    return a + 10 
+
+def a_b_to_c(y):
+    a = y[0]
+    b = y[1]
+    return a + b
+
+def b_c_to_d(y):
+    b = y[0]
+    c = y[1]
+    return b - c
+
+c_a_to_b = cj.boundedFunction([a_min],[(a_max-a_min)],[a_res], a_to_b, b_min, (b_max-b_min), b_res)
+c_a_b_to_c = cj.boundedFunction([a_min,b_min],[(a_max-a_min),(b_max-b_min)],[a_res,b_res], a_b_to_c, c_min, (c_max-c_min), c_res)
+c_b_c_to_d = cj.boundedFunction([b_min,c_min],[(b_max-b_min),(c_max-c_min)],[b_res,c_res], b_c_to_d, d_min, (d_max-d_min), d_res)
+
+
+joint_a_b = cj.newDist([a_min,b_min],[(a_max-a_min),(b_max-b_min)],[a_res,b_res],[a for a in np.zeros(a_res*b_res)])
+
+cj.joint2D(a0, 0, c_a_to_b, joint_a_b)
+
+joint_a_b_c = cj.newDist([a_min,b_min,c_min],[(a_max-a_min),(b_max-b_min),(c_max-c_min)],[a_res,b_res,c_res],[a for a in np.zeros(a_res*b_res*c_res)])
+
+cj.collider(joint_a_b, [0,1], c_a_b_to_c, joint_a_b_c)
+
+joint_b_c = cj.newDist([b_min,c_min],[(b_max-b_min),(c_max-c_min)],[b_res,c_res],[a for a in np.zeros(b_res*c_res)])
+
+cj.marginal(joint_a_b_c, 0, joint_b_c)
+
+joint_b_c_d = cj.newDist([b_min,c_min,d_min],[(b_max-b_min),(c_max-c_min),(d_max-d_min)],[b_res,c_res,d_res],[a for a in np.zeros(b_res*c_res*d_res)])
+
+cj.collider(joint_b_c, [0,1], c_b_c_to_d, joint_b_c_d)
+
+joint_a_d = cj.newDist([a_min,d_min],[(a_max-a_min),(d_max-d_min)],[a_res,d_res],[a for a in np.zeros(a_res*d_res)])
+b_c_given_a = cj.newDist([a_min,b_min,c_min],[(a_max-a_min),(b_max-b_min),(c_max-c_min)],[a_res,b_res,c_res],[a for a in np.zeros(a_res*b_res*c_res)])
+d_given_b_c = cj.newDist([b_min,c_min,d_min],[(b_max-b_min),(c_max-c_min),(d_max-d_min)],[b_res,c_res,d_res],[a for a in np.zeros(b_res*c_res*d_res)])
+
+cj.conditional(joint_a_b_c, [0], a0, b_c_given_a)
+cj.conditional(joint_b_c_d, [0,1], joint_b_c, d_given_b_c)
+cj.diamond(a0, b_c_given_a, d_given_b_c, joint_a_d)
+
+plotDist2D(joint_a_d)
+
+joint_b_d = cj.newDist([b_min,d_min],[(b_max-b_min),(d_max-d_min)],[b_res,d_res],[a for a in np.zeros(b_res*d_res)])
+b0 = cj.newDist([b_min],[(b_max-b_min)],[b_res],[x for x in np.zeros(b_res)])
+d_given_b = cj.newDist([b_min,d_min],[(b_max-b_min),(d_max-d_min)],[b_res,d_res],[a for a in np.zeros(b_res*d_res)])
+
+cj.marginal(joint_a_b, 0, b0)
+cj.marginal(joint_b_c_d, 1, joint_b_d)
+cj.conditional(joint_b_d, [0], b0, d_given_b)
+
+joint_a_b_d = cj.newDist([a_min,b_min,d_min],[(a_max-a_min),(b_max-b_min),(d_max-d_min)],[a_res,b_res,d_res],[a for a in np.zeros(a_res*b_res*d_res)])
+
+cj.joint3D(joint_a_b, 1, d_given_b, joint_a_b_d)
+
+cj.marginal(joint_a_b_d, 1, joint_a_d)
+
+plotDist2D(joint_a_d)
+
+plt.show()
+
 ##### 3D chain tests
 
 def x_to_y(y):
