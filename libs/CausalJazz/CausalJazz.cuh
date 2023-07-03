@@ -30,6 +30,9 @@ public:
 	void update(unsigned int grid_id, std::vector<double> A);
 	double totalMass(unsigned int grid_id);
 	CudaGrid* getGrid(unsigned int grid) { return &grids[grid]; }
+
+	double mult(std::vector<CudaGrid*> grids, std::vector<std::vector<unsigned int>> dimension_ids, std::vector<unsigned int> dim_vals);
+	void multGrids(std::vector<CudaGrid*> grids, std::vector<std::vector<unsigned int>> dimension_ids, CudaGrid* out, std::vector<unsigned int> out_dims);
 	
 private:
 	std::vector<CudaGrid> grids;

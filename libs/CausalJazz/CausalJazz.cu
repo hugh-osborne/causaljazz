@@ -484,3 +484,83 @@ void CausalJazz::transpose2D(unsigned int in, unsigned int out) {
 		grids[in].getRes()[1],
 		grids[out].getProbabilityMass());
 }
+
+double CausalJazz::mult(std::vector<CudaGrid*> grids, std::vector<std::vector<unsigned int>> dimension_ids, std::vector<unsigned int> dim_vals) {
+
+	double val = 1.0;
+
+	for (unsigned int g = 0; g < grids.size(); g++) {
+		std::vector<unsigned int> coords(grids[g]->getNumDimensions());
+		for (unsigned int d = 0; d < dimension_ids[g].size(); d++) {
+			coords[d] = dim_vals[dimension_ids[g][d]];
+		}
+		val *= grids[g]->getProbabilityMass()[grids[g]->getCellNum(coords)];
+	}
+
+	return val;
+}
+
+double multSumDims(std::vector<CudaGrid*> grids, std::vector<std::vector<unsigned int>> dimension_ids, std::vector<unsigned int> dim_sizes, double val, std::vector<unsigned int> dim_vals, std::vector<unsigned int> sum_dims) {
+	unsigned int dim = sum_dims.back();
+
+	if (sum_dims.size() == 0) {
+		val += mult(grids, dimension_ids, dim_vals);
+	}
+	else {
+		sum_dims.pop_back();
+		dim_vals.push_back(0);
+		for (unsigned int i = 0; i < dim_sizes[dim]; i++) {
+			multSumDims(grids, dimension_ids, dim_sizes, val, dim_vals, sum_dims);
+			dim_vals[dim_vals.size() - 1]++;
+		}
+	}
+}
+
+void multOutDims(std::vector<CudaGrid*> grids, std::vector<std::vector<unsigned int>> dimension_ids, std::vector<unsigned int> dim_sizes, CudaGrid* out, std::vector<unsigned int> dim_vals, std::vector<unsigned int> out_dims, std::vector<unsigned int> sum_dims) {
+	unsigned int dim = out_dims.back();
+
+	if (out_dims.size() == 0) {
+		out->getProbabilityMass()[out->getCellNum(dim_vals)] = multSumDims(grids, dimension_ids, dim_sizes, 0.0, dim_vals, sum_dims);
+	}
+	else {
+		out_dims.pop_back();
+		dim_vals.push_back(0);
+		for (unsigned int i = 0; i < dim_sizes[dim]; i++) {
+			multOutDims(grids, dimension_ids, dim_sizes, out, dim_vals, out_dims, sum_dims);
+			dim_vals[dim_vals.size() - 1]++;
+		}
+	}
+}
+
+void CausalJazz::multGrids(std::vector<CudaGrid*> grids, std::vector<std::vector<unsigned int>> dimension_ids, CudaGrid* out, std::vector<unsigned int> out_dims) {
+
+	// First calculate which dimensions need to be summed and which we are storing in the out grid.
+	// Could use better data structures for this obviously
+	std::vector<unsigned int> sum_dims;
+	for (unsigned int s = 0; s < dimension_ids.size(); s++) {
+		for (unsigned int d = 0; d < dimension_ids[s].size(); d++) {
+			bool inc = false;
+			for (unsigned int o : out_dims) {
+				if (o == dimension_ids[s][d]) {
+					inc = true;
+					break;
+				}
+			}
+			for (unsigned int o : sum_dims) {
+				if (o == dimension_ids[s][d]) {
+					inc = true;
+					break;
+				}
+			}
+			if (!inc)
+				sum_dims.push_back(dimension_ids[s][d]);
+		}
+	}
+
+
+
+	std::vector<unsigned int> dim_vals;
+
+	// 
+
+}

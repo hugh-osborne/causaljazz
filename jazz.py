@@ -424,7 +424,7 @@ def cond(y):
     E_i = -75
     C = 281
     g_l = 0.03
-    tau_e =10.49
+    tau_e =2.728
     tau_i = 10.49
 
     v = y[0]
@@ -444,7 +444,7 @@ def cond_diff(y):
     E_i = -75
     C = 281
     g_l = 0.03
-    tau_e =10.49
+    tau_e =2.728
     tau_i =10.49
 
     v = y[0]
@@ -460,7 +460,7 @@ def cond_diff(y):
 def w_prime(y):
     w = y[0]
     jump = y[1]
-    tau_e =10.49
+    tau_e =2.728
     dt = 0.1
 
     w_prime = -(w) / tau_e
@@ -508,10 +508,7 @@ def v_prime(y):
 
     v = vw + vu
 
-    if v > threshold:
-        return reset
-    else:
-        return v
+    return v
 
 res = 100
 v_res = 100
