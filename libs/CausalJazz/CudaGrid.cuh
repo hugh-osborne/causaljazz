@@ -17,12 +17,14 @@ public:
 	~CudaGrid();
 
 	fptype* getProbabilityMass() { return probability_mass; }
+	std::vector<fptype>& getHostedProbabilityMass() { return hosted_probability_mass; }
 	std::vector<fptype> readProbabilityMass();
 	void updateMass(std::vector<double> A);
 
 private:
 	
 	fptype* probability_mass;
+	std::vector<fptype> hosted_probability_mass;
 };
 
 #endif

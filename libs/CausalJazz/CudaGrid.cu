@@ -40,10 +40,12 @@ CudaGrid::~CudaGrid() {
 }
 
 std::vector<fptype> CudaGrid::readProbabilityMass() {
-	std::vector<fptype> out(getTotalNumCells());
-	checkCudaErrors(cudaMemcpy(&out[0], probability_mass, getTotalNumCells() * sizeof(fptype), cudaMemcpyDeviceToHost));
+	if (hosted_probability_mass.size() == 0)
+		hosted_probability_mass = std::vector<fptype>(getTotalNumCells());
 
-	return out;
+	checkCudaErrors(cudaMemcpy(&hosted_probability_mass[0], probability_mass, getTotalNumCells() * sizeof(fptype), cudaMemcpyDeviceToHost));
+
+	return hosted_probability_mass;
 }
 
 void CudaGrid::updateMass(std::vector<double> A) {

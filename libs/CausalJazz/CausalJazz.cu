@@ -494,40 +494,59 @@ double CausalJazz::mult(std::vector<CudaGrid*> grids, std::vector<std::vector<un
 		for (unsigned int d = 0; d < dimension_ids[g].size(); d++) {
 			coords[d] = dim_vals[dimension_ids[g][d]];
 		}
-		val *= grids[g]->getProbabilityMass()[grids[g]->getCellNum(coords)];
+		val *= grids[g]->getHostedProbabilityMass()[grids[g]->getCellNum(coords)];
 	}
 
 	return val;
 }
 
-double multSumDims(std::vector<CudaGrid*> grids, std::vector<std::vector<unsigned int>> dimension_ids, std::vector<unsigned int> dim_sizes, double val, std::vector<unsigned int> dim_vals, std::vector<unsigned int> sum_dims) {
-	unsigned int dim = sum_dims.back();
-
+void CausalJazz::multSumDims(std::vector<CudaGrid*> grids, std::vector<std::vector<unsigned int>> dimension_ids, std::vector<unsigned int> dim_sizes, double& val, std::vector<unsigned int> dim_vals, std::vector<unsigned int> sum_dims) {
+	
 	if (sum_dims.size() == 0) {
-		val += mult(grids, dimension_ids, dim_vals);
+		double d = mult(grids, dimension_ids, dim_vals);
+		if (d > 0)
+			std::cout << val << " " << d << "\n";
+		val += d;
 	}
 	else {
+		unsigned int dim = sum_dims.back();
+		unsigned int size = dim_sizes.back();
 		sum_dims.pop_back();
-		dim_vals.push_back(0);
-		for (unsigned int i = 0; i < dim_sizes[dim]; i++) {
+		dim_sizes.pop_back();
+		for (unsigned int i = 0; i < size; i++) {
 			multSumDims(grids, dimension_ids, dim_sizes, val, dim_vals, sum_dims);
-			dim_vals[dim_vals.size() - 1]++;
+			dim_vals[dim]++;
 		}
 	}
+
 }
 
-void multOutDims(std::vector<CudaGrid*> grids, std::vector<std::vector<unsigned int>> dimension_ids, std::vector<unsigned int> dim_sizes, CudaGrid* out, std::vector<unsigned int> dim_vals, std::vector<unsigned int> out_dims, std::vector<unsigned int> sum_dims) {
-	unsigned int dim = out_dims.back();
-
+void CausalJazz::multOutDims(std::vector<CudaGrid*> grids, std::vector<std::vector<unsigned int>> dimension_ids, std::vector<unsigned int> dim_sizes, CudaGrid* out, std::vector<unsigned int> dim_vals, std::vector<unsigned int> full_out_dims, std::vector<unsigned int> out_dims, std::vector<unsigned int> sum_dims) {
+	
 	if (out_dims.size() == 0) {
-		out->getProbabilityMass()[out->getCellNum(dim_vals)] = multSumDims(grids, dimension_ids, dim_sizes, 0.0, dim_vals, sum_dims);
+		std::vector<unsigned int> coords(out->getNumDimensions());
+		for (unsigned int d = 0; d < full_out_dims.size(); d++) {
+			coords[d] = dim_vals[full_out_dims[d]];
+		}
+		double total = 0.0;
+		multSumDims(grids, dimension_ids, dim_sizes, total, dim_vals, sum_dims);
+
+		out->getHostedProbabilityMass()[out->getCellNum(coords)] = total;
+
+		if (out->getHostedProbabilityMass()[out->getCellNum(coords)] > 0) {
+			for (auto a : dim_vals)
+				std::cout << a << "|";
+			std::cout << "\n";
+			std::cout << out->getCellNum(coords) << " " << out->getHostedProbabilityMass()[out->getCellNum(coords)] << "\n";
+		}
+			
 	}
 	else {
+		unsigned int dim = out_dims.back();
 		out_dims.pop_back();
-		dim_vals.push_back(0);
-		for (unsigned int i = 0; i < dim_sizes[dim]; i++) {
-			multOutDims(grids, dimension_ids, dim_sizes, out, dim_vals, out_dims, sum_dims);
-			dim_vals[dim_vals.size() - 1]++;
+		for (unsigned int i = 0; i < out->getRes()[dim]; i++) {
+			multOutDims(grids, dimension_ids, dim_sizes, out, dim_vals, full_out_dims, out_dims, sum_dims);
+			dim_vals[dim]++;
 		}
 	}
 }
@@ -537,6 +556,7 @@ void CausalJazz::multGrids(std::vector<CudaGrid*> grids, std::vector<std::vector
 	// First calculate which dimensions need to be summed and which we are storing in the out grid.
 	// Could use better data structures for this obviously
 	std::vector<unsigned int> sum_dims;
+	std::vector<unsigned int> sum_sizes;
 	for (unsigned int s = 0; s < dimension_ids.size(); s++) {
 		for (unsigned int d = 0; d < dimension_ids[s].size(); d++) {
 			bool inc = false;
@@ -552,15 +572,28 @@ void CausalJazz::multGrids(std::vector<CudaGrid*> grids, std::vector<std::vector
 					break;
 				}
 			}
-			if (!inc)
+			if (!inc) {
+				sum_sizes.push_back(grids[s]->getRes()[d]);
 				sum_dims.push_back(dimension_ids[s][d]);
+			}
+				
 		}
 	}
 
+	std::vector<unsigned int> dim_vals(out_dims.size() + sum_dims.size());
 
+	for (auto grid : grids) {
+		grid->readProbabilityMass();
+	}
 
-	std::vector<unsigned int> dim_vals;
+	out->readProbabilityMass();
 
-	// 
+	multOutDims(grids, dimension_ids, sum_sizes, out, dim_vals, out_dims, out_dims, sum_dims);
+
+	std::vector<double> mass(out->getHostedProbabilityMass().size());
+	for (unsigned int i = 0; i < mass.size(); i++)
+		mass[i] = (double)out->getHostedProbabilityMass()[i];
+
+	out->updateMass(mass);
 
 }

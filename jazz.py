@@ -510,6 +510,7 @@ def v_prime(y):
 
     return v
 
+
 res = 100
 v_res = 100
 w_res = 100
@@ -837,11 +838,9 @@ for iteration in range(1000):
 
     cj.marginal(joint_v_w_vw, 1, joint_v_vw)
     cj.marginal(joint_v_u_vu, 1, joint_v_vu)
-    
-    cj.conditional(joint_v_vw, [0], v1, vw_given_v)
-    cj.conditional(joint_v_vu, [0], v1, vu_given_v)
 
-    cj.fork(v1, 0, vw_given_v, 0, vu_given_v, joint_v_vw_vu)
+    #cj.multiply([joint_v_vw,joint_v_vu], [[0,1],[0,2]], joint_v_vw_vu, [0,1,2])
+    
     cj.marginal(joint_v_vw_vu, 0, joint_vw_vu)
     
     cj.collider(joint_vw_vu, [0,1], c_v_prime, joint_vw_vu_v1)
@@ -896,6 +895,9 @@ for iteration in range(1000):
 
     cj.joint3D(joint_w0_vw, 1, v1_given_vw, joint_w0_vw_v1)
     cj.marginal(joint_w0_vw_v1, 1, marginal_w0_v1)
+
+    cj.multiply([joint_v_w_vw,joint_v_vu,c_v_prime], [[1,0,2],[1,3],[2,3,4]], marginal_w0_v1, [0,4])
+
     cj.conditional(marginal_w0_v1, [0], w1, v1_given_w0)
 
     # Do it all again for u0
@@ -904,6 +906,9 @@ for iteration in range(1000):
     
     cj.joint3D(joint_u0_vu, 1, v1_given_vu, joint_u0_vu_v1)
     cj.marginal(joint_u0_vu_v1, 1, marginal_u0_v1)
+
+    #cj.multiply([joint_v_u_vu,joint_v_vw,c_v_prime], [[1,0,2],[1,3],[2,3,4]], marginal_u0_v1, [0,4])
+
     cj.conditional(marginal_u0_v1, [0], u1, v1_given_u0)
 
     # We can now correctly define the joint distributions v',m' and v',u' and this should be the same each iteration

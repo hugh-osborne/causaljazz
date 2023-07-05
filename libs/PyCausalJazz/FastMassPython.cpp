@@ -2366,6 +2366,121 @@ PyObject* fastmass_transpose(PyObject* self, PyObject* args)
     }
 }
 
+PyObject* fastmass_multiply(PyObject* self, PyObject* args)
+{
+    try {
+        /* Get arbitrary number of strings from Py_Tuple */
+        Py_ssize_t i = 0;
+        PyObject* temp_p, * temp_p2;
+
+        std::vector<unsigned int> grid_ids;
+        std::vector<std::vector<unsigned int>> grid_dims;
+        unsigned int out_id;
+        std::vector<unsigned int> out_dims;
+
+        // grid id list
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        int pr_length = PyObject_Length(temp_p);
+        if (pr_length < 0)
+            return NULL;
+
+        grid_ids = std::vector<unsigned int>(pr_length);
+
+        for (int index = 0; index < pr_length; index++) {
+            PyObject* item;
+            item = PyList_GetItem(temp_p, index);
+            if (!PyFloat_Check(item))
+                grid_ids[index] = 0;
+            grid_ids[index] = PyLong_AsLong(item);
+        }
+
+        Py_XDECREF(temp_p);
+        i++;
+
+        // grid dimensions list
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        pr_length = PyObject_Length(temp_p);
+        if (pr_length < 0)
+            return NULL;
+
+        grid_dims = std::vector<std::vector<unsigned int>>(pr_length);
+
+        for (int index = 0; index < pr_length; index++) {
+            PyObject* item;
+            item = PyList_GetItem(temp_p, index);
+            int item_length = PyObject_Length(item);
+            if (item_length < 0)
+                return NULL;
+
+            std::vector<unsigned int> grid_dim(item_length);
+
+            for (int index2 = 0; index2 < item_length; index2++) {
+                PyObject* item2;
+                item2 = PyList_GetItem(item, index2);
+
+                if (!PyFloat_Check(item2))
+                    grid_dim[index2] = 0;
+                grid_dim[index2] = PyLong_AsLong(item2);
+            }
+            grid_dims[index] = grid_dim;
+        }
+
+        Py_XDECREF(temp_p);
+        i++;
+
+
+        // output grid
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        if (PyNumber_Check(temp_p) == 1) {
+            /* Convert number to python float then C double*/
+            temp_p2 = PyNumber_Long(temp_p);
+            out_id = (int)PyLong_AsLong(temp_p2);
+            Py_DECREF(temp_p2);
+            i++;
+        }
+
+        // output dimensions
+        temp_p = PyTuple_GetItem(args, i);
+        if (temp_p == NULL) { return NULL; }
+        pr_length = PyObject_Length(temp_p);
+        if (pr_length < 0)
+            return NULL;
+
+        out_dims = std::vector<unsigned int>(pr_length);
+
+        for (int index = 0; index < pr_length; index++) {
+            PyObject* item;
+            item = PyList_GetItem(temp_p, index);
+            if (!PyFloat_Check(item))
+                out_dims[index] = 0;
+            out_dims[index] = PyLong_AsLong(item);
+        }
+
+        Py_XDECREF(temp_p);
+        i++;
+
+        std::vector<CudaGrid*> mult_grids;
+        for (auto g : grid_ids) {
+            mult_grids.push_back(jazz->getGrid(g));
+        }
+
+        jazz->multGrids(mult_grids, grid_dims, jazz->getGrid(out_id), out_dims);
+
+        Py_RETURN_NONE;
+    }
+    catch (const std::exception& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    catch (...) {
+        PyErr_SetString(PyExc_RuntimeError, "Unhandled Exception during generateNdGrid()");
+        return NULL;
+    }
+}
+
 /*
  * List of functions to add to WinMiindPython in exec_WinMiindPython().
  */
@@ -2406,6 +2521,7 @@ static PyMethodDef pycausaljazz_functions[] = {
     {"update", (PyCFunction)fastmass_update, METH_VARARGS, "Jazz : Update the mass in a grid."},
     {"total", (PyCFunction)fastmass_total, METH_VARARGS, "Jazz : Check the mass total in this grid."},
     {"transpose", (PyCFunction)fastmass_transpose, METH_VARARGS, "Jazz : Transpose this grid."},
+    {"multiply", (PyCFunction)fastmass_multiply, METH_VARARGS, "Jazz : Multiply a list of grids."},
     { NULL, NULL, 0, NULL } /* marks end of array */
 };
 

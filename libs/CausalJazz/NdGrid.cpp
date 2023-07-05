@@ -73,7 +73,7 @@ std::vector<unsigned int> NdGrid::getCellCoords(unsigned int c) {
 }
 
 unsigned int NdGrid::getCellNum(std::vector<unsigned int> coords) {
-    unsigned int c = 1;
+    unsigned int c = 0;
     for (int i = 0; i < num_dimensions; i++) {
         c += coords[i] * res_offsets[i];
     }
