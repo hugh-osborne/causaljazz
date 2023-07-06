@@ -486,7 +486,7 @@ void CausalJazz::transpose2D(unsigned int in, unsigned int out) {
 }
 
 double CausalJazz::mult(std::vector<CudaGrid*> grids, std::vector<std::vector<unsigned int>> dimension_ids, std::vector<unsigned int> dim_vals) {
-
+	
 	double val = 1.0;
 
 	for (unsigned int g = 0; g < grids.size(); g++) {
@@ -494,7 +494,9 @@ double CausalJazz::mult(std::vector<CudaGrid*> grids, std::vector<std::vector<un
 		for (unsigned int d = 0; d < dimension_ids[g].size(); d++) {
 			coords[d] = dim_vals[dimension_ids[g][d]];
 		}
+		
 		val *= grids[g]->getHostedProbabilityMass()[grids[g]->getCellNum(coords)];
+		
 	}
 
 	return val;
@@ -503,10 +505,7 @@ double CausalJazz::mult(std::vector<CudaGrid*> grids, std::vector<std::vector<un
 void CausalJazz::multSumDims(std::vector<CudaGrid*> grids, std::vector<std::vector<unsigned int>> dimension_ids, std::vector<unsigned int> dim_sizes, double& val, std::vector<unsigned int> dim_vals, std::vector<unsigned int> sum_dims) {
 	
 	if (sum_dims.size() == 0) {
-		double d = mult(grids, dimension_ids, dim_vals);
-		if (d > 0)
-			std::cout << val << " " << d << "\n";
-		val += d;
+		val += mult(grids, dimension_ids, dim_vals);
 	}
 	else {
 		unsigned int dim = sum_dims.back();
@@ -529,22 +528,15 @@ void CausalJazz::multOutDims(std::vector<CudaGrid*> grids, std::vector<std::vect
 			coords[d] = dim_vals[full_out_dims[d]];
 		}
 		double total = 0.0;
+
 		multSumDims(grids, dimension_ids, dim_sizes, total, dim_vals, sum_dims);
 
 		out->getHostedProbabilityMass()[out->getCellNum(coords)] = total;
-
-		if (out->getHostedProbabilityMass()[out->getCellNum(coords)] > 0) {
-			for (auto a : dim_vals)
-				std::cout << a << "|";
-			std::cout << "\n";
-			std::cout << out->getCellNum(coords) << " " << out->getHostedProbabilityMass()[out->getCellNum(coords)] << "\n";
-		}
-			
 	}
 	else {
 		unsigned int dim = out_dims.back();
 		out_dims.pop_back();
-		for (unsigned int i = 0; i < out->getRes()[dim]; i++) {
+		for (unsigned int i = 0; i < out->getRes()[out_dims.size()]; i++) {
 			multOutDims(grids, dimension_ids, dim_sizes, out, dim_vals, full_out_dims, out_dims, sum_dims);
 			dim_vals[dim]++;
 		}
