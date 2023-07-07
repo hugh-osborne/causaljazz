@@ -523,4 +523,18 @@ __global__ void transpose(
     inttype in_B_cells,
     fptype* out);
 
+__global__ void multiplyGrids4D(
+    inttype num_ABC_cells,
+    fptype* out_ABC,
+    inttype A_res,
+    inttype B_res,
+    inttype C_res,
+    inttype D_res,
+    inttype num_grids,
+    fptype** grids,
+    inttype* grid_dim_start_points,
+    inttype* grid_dim_counts,
+    inttype* dimension_ids,
+    inttype* grid_res_offsets);
+
 #endif

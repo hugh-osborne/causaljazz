@@ -730,6 +730,7 @@ cj.marginal(marginal_vu_v1, 1, marginal_vu)
 v1_given_vw = cj.newDist([cj.base(c_vw)[2],v_min],[cj.size(c_vw)[2],(v_max-v_min)],[res,v_res], [a for a in np.zeros(res*v_res)])
 v1_given_vu = cj.newDist([cj.base(c_vu)[2],v_min],[cj.size(c_vu)[2],(v_max-v_min)],[res,v_res], [a for a in np.zeros(res*v_res)])
 marginal_w0_vw_vu = cj.newDist([w_min,cj.base(c_vw)[2],cj.base(c_vu)[2]],[(w_max-w_min),cj.size(c_vw)[2],cj.size(c_vu)[2]],[w_res,res,res], [a for a in np.zeros(w_res*res*res)])
+marginal_w0_vw_v1 = cj.newDist([w_min,cj.base(c_vw)[2],v_min],[(w_max-w_min),cj.size(c_vw)[2],(v_max-v_min)],[w_res,res,v_res], [a for a in np.zeros(w_res*res*v_res)])
 
 cj.conditional(marginal_vw_v1, [0], marginal_vw, v1_given_vw)
 cj.conditional(marginal_vu_v1, [0], marginal_vu, v1_given_vu)
@@ -841,6 +842,11 @@ for iteration in range(1000):
     cj.marginal(joint_v_u_vu, 1, joint_v_vu)
 
     #cj.multiply([joint_v_vw,joint_v_vu], [[0,1],[0,2]], joint_v_vw_vu, [0,1,2])
+
+    cj.conditional(joint_v_vw, [0], v1, vw_given_v)
+    cj.conditional(joint_v_vu, [0], v1, vu_given_v)
+    
+    cj.fork(v1, 0, vw_given_v, 0, vu_given_v, joint_v_vw_vu)
     
     cj.marginal(joint_v_vw_vu, 0, joint_vw_vu)
     
@@ -897,9 +903,14 @@ for iteration in range(1000):
     cj.joint3D(joint_w0_vw, 1, v1_given_vw, joint_w0_vw_v1)
     #cj.marginal(joint_w0_vw_v1, 1, marginal_w0_v1)
 
-    cj.multiply([joint_v_w_vw,joint_v_vu], [[0,1,2],[0,3]], marginal_w0_vw_vu, [1,2,3])
+    cj.multiply([joint_v_w_vw,joint_v_vu], [[3,0,1],[3,2]], marginal_w0_vw_vu, [0,1,2])
 
-    cj.multiply([marginal_w0_vw_vu,c_v_prime], [[0,1,2],[1,2,3]], marginal_w0_v1, [0,3])
+    cj.multiply([marginal_w0_vw_vu,c_v_prime], [[0,1,3],[1,3,2]], marginal_w0_vw_v1, [0,1,2])
+
+    cj.marginal(marginal_w0_vw_v1, 1, marginal_w0_v1)
+
+    plotDist2D(marginal_w0_v1)
+    plt.show()
 
     cj.conditional(marginal_w0_v1, [0], w1, v1_given_w0)
 

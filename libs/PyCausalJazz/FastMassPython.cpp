@@ -2467,7 +2467,7 @@ PyObject* fastmass_multiply(PyObject* self, PyObject* args)
             mult_grids.push_back(jazz->getGrid(g));
         }
 
-        jazz->multGrids(mult_grids, grid_dims, jazz->getGrid(out_id), out_dims);
+        jazz->multGrids4D(mult_grids, grid_dims, jazz->getGrid(out_id), out_dims);
 
         Py_RETURN_NONE;
     }

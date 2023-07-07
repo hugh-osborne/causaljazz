@@ -37,6 +37,8 @@ public:
 	void multOutDims(std::vector<CudaGrid*> grids, std::vector<std::vector<unsigned int>> dimension_ids, std::vector<unsigned int> dim_sizes,
 		CudaGrid* out, std::vector<unsigned int> dim_vals, std::vector<unsigned int> full_out_dims, std::vector<unsigned int> out_dims, std::vector<unsigned int> sum_dims);
 	void multGrids(std::vector<CudaGrid*> grids, std::vector<std::vector<unsigned int>> dimension_ids, CudaGrid* out, std::vector<unsigned int> out_dims);
+
+	void multGrids4D(std::vector<CudaGrid*> grids, std::vector<std::vector<unsigned int>> dimension_ids, CudaGrid* out, std::vector<unsigned int> out_dims);
 	
 private:
 	std::vector<CudaGrid> grids;

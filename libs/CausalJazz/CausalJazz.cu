@@ -589,3 +589,90 @@ void CausalJazz::multGrids(std::vector<CudaGrid*> grids, std::vector<std::vector
 	out->updateMass(mass);
 
 }
+
+void CausalJazz::multGrids4D(std::vector<CudaGrid*> grids, std::vector<std::vector<unsigned int>> dimension_ids, CudaGrid* out, std::vector<unsigned int> out_dims) {
+	// For the card version, we have a set order of dimensions:
+	// the three out dimensions followed by the summed dimension
+
+	// Build the array of grid pointers, array of dimension_id start points, dimension_numbers, res_offsets
+
+	std::vector<fptype*> grid_addresses(grids.size());
+	std::vector<inttype> grid_dim_start_points(grids.size());
+	std::vector<inttype> grid_dim_counts(grids.size());
+	std::vector<inttype> grid_res_offsets;
+	std::vector<inttype> grid_flattened_dimension_ids;
+	unsigned int grid_start_counter = 0;
+	unsigned int d_res = 0;
+
+	for (unsigned int g = 0; g < grids.size(); g++) {
+		grid_addresses[g] = grids[g]->getProbabilityMass();
+		grid_dim_start_points[g] = grid_start_counter;
+		grid_dim_counts[g] = dimension_ids[g].size();
+		grid_start_counter += grid_dim_counts[g];
+		for (unsigned int d = 0; d < dimension_ids[g].size(); d++) {
+			grid_flattened_dimension_ids.push_back(dimension_ids[g][d]);
+			grid_res_offsets.push_back(grids[g]->getResOffsets()[d]);
+			// Check if this is the fourth dimension we want to add
+			if (dimension_ids[g][d] == 3) {
+				d_res = grids[g]->getResOffsets()[d];
+			}
+		}
+	}
+
+	if (d_res == 0) {
+		std::cout << "ERROR: FOURTH (SUMMED) DIMENSION NOT FOUND.\n";
+		return;
+	}
+
+	fptype** addresses;
+	inttype* dim_start_points;
+	inttype* dim_counts;
+	inttype* res_offsets;
+	inttype* flattened_dimension_ids;
+
+	checkCudaErrors(cudaMalloc((fptype**)&addresses, grids.size() * sizeof(fptype*)));
+	checkCudaErrors(cudaMemcpy(addresses, &grid_addresses[0], grids.size() * sizeof(fptype*), cudaMemcpyHostToDevice));
+
+	checkCudaErrors(cudaMalloc((inttype**)&dim_start_points, grids.size() * sizeof(inttype)));
+	checkCudaErrors(cudaMemcpy(dim_start_points, &grid_dim_start_points[0], grids.size() * sizeof(inttype), cudaMemcpyHostToDevice));
+
+	checkCudaErrors(cudaMalloc((inttype**)&dim_counts, grids.size() * sizeof(inttype)));
+	checkCudaErrors(cudaMemcpy(dim_counts, &grid_dim_counts[0], grids.size() * sizeof(inttype), cudaMemcpyHostToDevice));
+
+	checkCudaErrors(cudaMalloc((inttype**)&res_offsets, grid_res_offsets.size() * sizeof(inttype)));
+	checkCudaErrors(cudaMemcpy(res_offsets, &grid_res_offsets[0], grid_res_offsets.size() * sizeof(inttype), cudaMemcpyHostToDevice));
+
+	checkCudaErrors(cudaMalloc((inttype**)&flattened_dimension_ids, grid_flattened_dimension_ids.size() * sizeof(inttype)));
+	checkCudaErrors(cudaMemcpy(flattened_dimension_ids, &grid_flattened_dimension_ids[0], grid_flattened_dimension_ids.size() * sizeof(inttype), cudaMemcpyHostToDevice));
+
+	/*
+	__global__ void multiplyGrids4D(
+		inttype num_ABC_cells,
+		fptype * out_ABC,
+		inttype A_res,
+		inttype B_res,
+		inttype C_res,
+		inttype D_res,
+		inttype num_grids,
+		fptype * *grids,
+		inttype * grid_dim_start_points,
+		inttype * grid_dim_counts,
+		inttype * dimension_ids,
+		inttype * grid_res_offsets)*/
+
+	unsigned int numBlocks = (out->getTotalNumCells() + block_size - 1) / block_size;
+
+	multiplyGrids4D << <numBlocks, block_size >> > (
+		out->getTotalNumCells(),
+		out->getProbabilityMass(),
+		out->getRes()[0],
+		out->getRes()[1],
+		out->getRes()[2],
+		d_res,
+		grids.size(),
+		addresses,
+		dim_start_points,
+		dim_counts,
+		flattened_dimension_ids,
+		res_offsets);
+}
