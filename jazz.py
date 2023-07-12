@@ -621,177 +621,70 @@ c_vu = cj.function([v_min,u_min],[(v_max-v_min),(u_max-u_min)],[v_res,u_res], vu
 
 c_v_prime = cj.boundedFunction([cj.base(c_vw)[2],cj.base(c_vu)[2]], [cj.size(c_vw)[2],cj.size(c_vu)[2]], [res,res], v_prime, v_min, (v_max-v_min), v_res)
 
-# w1 and u1 are easy to calculate
-print("w1 and u1 are easy to calculate - they're just chains.")
+w0_v0_vw = cj.newDist([w_min, v_min, cj.base(c_vw)[2]], [(w_max-w_min),(v_max-v_min), cj.size(c_vw)[2]], [w_res,v_res,res], [a for a in np.zeros(w_res*v_res*res)])
+cj.multiply([w0,v0,c_vw], [[0],[1],[1,0,2]], w0_v0_vw, [0,1,2])
 
-joint_w0_wI_w1 = cj.newDist([w_min,wI_min,w_min],[(w_max-w_min),(wI_max-wI_min),(w_max-w_min)],[w_res,I_res,w_res],[a for a in np.zeros(w_res*I_res*w_res)])
+u0_v0_vu = cj.newDist([u_min, v_min, cj.base(c_vu)[2]], [(u_max-u_min),(v_max-v_min), cj.size(c_vu)[2]], [w_res,v_res,res], [a for a in np.zeros(w_res*v_res*res)])
+cj.multiply([u0,v0,c_vu], [[0],[1],[1,0,2]], u0_v0_vu, [0,1,2])
 
-joint_u0_uI_u1 = cj.newDist([u_min,uI_min,u_min],[(u_max-u_min),(uI_max-uI_min),(u_max-u_min)],[u_res,I_res,u_res],[a for a in np.zeros(u_res*I_res*u_res)])
-joint_w0_wI = cj.newDist([w_min,wI_min],[(w_max-w_min),(wI_max-wI_min)],[w_res,I_res],[a for a in np.zeros(w_res*I_res)])
-joint_u0_uI = cj.newDist([u_min,uI_min],[(u_max-u_min),(uI_max-uI_min)],[u_res,I_res],[a for a in np.zeros(u_res*I_res)])
+v0_vw = cj.newDist([v_min, cj.base(c_vw)[2]], [(v_max-v_min),cj.size(c_vw)[2]], [v_res,res], [a for a in np.zeros(v_res*res)])
+v0_vu = cj.newDist([v_min, cj.base(c_vu)[2]], [(v_max-v_min),cj.size(c_vu)[2]], [v_res,res], [a for a in np.zeros(v_res*res)])
+vw_given_v0 = cj.newDist([v_min, cj.base(c_vw)[2]], [(v_max-v_min),cj.size(c_vw)[2]], [v_res,res], [a for a in np.zeros(v_res*res)])
+vu_given_v0 = cj.newDist([v_min, cj.base(c_vu)[2]], [(v_max-v_min),cj.size(c_vu)[2]], [v_res,res], [a for a in np.zeros(v_res*res)])
 
-# w and wI and u and uI are independent so just build the joint distribution by multiplying
-cj.joint2Di(w0, wI, joint_w0_wI)
-cj.joint2Di(u0, uI, joint_u0_uI)
+cj.marginal(w0_v0_vw, 0, v0_vw)
+cj.marginal(u0_v0_vu, 0, v0_vu)
+cj.conditional(v0_vw, [0], v0, vw_given_v0)
+cj.conditional(v0_vu, [0], v0, vu_given_v0)
 
-cj.collider(joint_w0_wI, [0,1], c_w_prime, joint_w0_wI_w1)
-cj.collider(joint_u0_uI, [0,1], c_u_prime, joint_u0_uI_u1)
+w0_vw_vu = cj.newDist([w_min, cj.base(c_vw)[2], cj.base(c_vu)[2]], [(w_max-w_min),cj.size(c_vw)[2],cj.size(c_vu)[2]], [w_res,res,res], [a for a in np.zeros(w_res*res*res)])
+u0_vw_vu = cj.newDist([u_min, cj.base(c_vw)[2], cj.base(c_vu)[2]], [(u_max-u_min),cj.size(c_vw)[2],cj.size(c_vu)[2]], [u_res,res,res], [a for a in np.zeros(u_res*res*res)])
 
-marginal_wI_w1 = cj.newDist([wI_min,w_min],[(wI_max-wI_min),(w_max-w_min)],[I_res,w_res],[a for a in np.zeros(I_res*w_res)])
-marginal_uI_u1 = cj.newDist([uI_min,u_min],[(uI_max-uI_min),(u_max-u_min)],[I_res,u_res],[a for a in np.zeros(I_res*u_res)])
-w1 = cj.newDist([w_min],[(w_max-w_min)],[w_res],[a for a in np.zeros(w_res)])
-u1 = cj.newDist([u_min],[(u_max-u_min)],[u_res],[a for a in np.zeros(u_res)])
+cj.multiply([w0_v0_vw, vu_given_v0], [[0,3,1],[3,2]], w0_vw_vu, [0,1,2])
+cj.multiply([u0_v0_vu, vw_given_v0], [[0,3,2],[3,1]], u0_vw_vu, [0,1,2])
 
-cj.marginal(joint_w0_wI_w1, 0, marginal_wI_w1)
-cj.marginal(joint_u0_uI_u1, 0, marginal_uI_u1)
+w0_vw_v1 = cj.newDist([w_min, cj.base(c_vw)[2], v_min], [(w_max-w_min),cj.size(c_vw)[2],(v_max-v_min)], [w_res,res,v_res], [a for a in np.zeros(w_res*res*v_res)]) 
+u0_vu_v1 = cj.newDist([u_min, cj.base(c_vu)[2], v_min], [(u_max-u_min),cj.size(c_vu)[2],(v_max-v_min)], [u_res,res,v_res], [a for a in np.zeros(u_res*res*v_res)]) 
 
-cj.marginal(marginal_wI_w1, 0, w1)
-cj.marginal(marginal_uI_u1, 0, u1)
+cj.multiply([w0_vw_vu, c_v_prime], [[0,1,3],[1,3,2]], w0_vw_v1, [0,1,2])
+cj.multiply([u0_vw_vu, c_v_prime], [[0,3,1],[3,1,2]], u0_vu_v1, [0,1,2])
 
-# Store the marginal conditional w1|w0 for later when we want to calculate joint w1_v1
-marginal_w0_w1 = cj.newDist([w_min,w_min],[(w_max-w_min),(w_max-w_min)],[w_res,w_res],[a for a in np.zeros(w_res*w_res)])
-marginal_u0_u1 = cj.newDist([u_min,u_min],[(u_max-u_min),(u_max-u_min)],[u_res,u_res],[a for a in np.zeros(u_res*u_res)])
-w1_given_w0 = cj.newDist([w_min,w_min],[(w_max-w_min),(w_max-w_min)],[w_res,w_res],[a for a in np.zeros(w_res*w_res)])
-u1_given_u0 = cj.newDist([u_min,u_min],[(u_max-u_min),(u_max-u_min)],[u_res,u_res],[a for a in np.zeros(u_res*u_res)])
+w0_v1 = cj.newDist([w_min, v_min], [(w_max-w_min),(v_max-v_min)], [w_res,v_res], [a for a in np.zeros(w_res*v_res)]) 
+u0_v1 = cj.newDist([u_min, v_min], [(u_max-u_min),(v_max-v_min)], [u_res,v_res], [a for a in np.zeros(u_res*v_res)])  
+v1_given_w0 = cj.newDist([w_min, v_min], [(w_max-w_min),(v_max-v_min)], [w_res,v_res], [a for a in np.zeros(w_res*v_res)]) 
+v1_given_u0 = cj.newDist([u_min, v_min], [(u_max-u_min),(v_max-v_min)], [u_res,v_res], [a for a in np.zeros(u_res*v_res)]) 
 
-cj.marginal(joint_w0_wI_w1, 1, marginal_w0_w1)
-cj.marginal(joint_u0_uI_u1, 1, marginal_u0_u1)
-cj.conditional(marginal_w0_w1, [0], w0, w1_given_w0)
-cj.conditional(marginal_u0_u1, [0], u0, u1_given_u0)
+cj.marginal(w0_vw_v1, 1, w0_v1)
+cj.marginal(u0_vu_v1, 1, u0_v1)
+cj.conditional(w0_v1, [0], w0, v1_given_w0)
+cj.conditional(u0_v1, [0], u0, v1_given_u0)
 
-#dist_w0 = cj.readDist(w0)
-#dist_w1 = cj.readDist(w1)
+w0_v1_w1 = cj.newDist([w_min, v_min, w_min], [(w_max-w_min),(v_max-v_min),(w_max-w_min)], [w_res,v_res,w_res], [a for a in np.zeros(w_res*v_res*w_res)]) 
+u0_v1_u1 = cj.newDist([u_min, v_min, u_min], [(u_max-u_min),(v_max-v_min),(u_max-u_min)], [u_res,v_res,u_res], [a for a in np.zeros(u_res*v_res*u_res)]) 
 
-#fig, ax = plt.subplots(1, 1)
-#ax.set_title('')
-#ax.plot(w, dist_w0)
-#ax.plot(w, dist_w1, linestyle="--")
-#fig.tight_layout()
-#plt.show()
+cj.multiply([w0,wI,c_w_prime,v1_given_w0], [[0],[3],[0,3,2],[0,1]], w0_v1_w1, [0,1,2])
+cj.multiply([u0,uI,c_u_prime,v1_given_u0], [[0],[3],[0,3,2],[0,1]], u0_v1_u1, [0,1,2])
 
-# Next calculate the distributions from the conditionals wv and uv. v0 and w0 -> vw0 is easy as v0 and w0 are independent. Not so much for v1 and w1 -> vw1.
-print("Next calculate the distributions from the conditionals wv and uv. v0 and w0 -> vw0 is easy as v0 and w0 are independent. Not so much for v1 and w1 -> vw1.")
+v1_w1 = cj.newDist([v_min, w_min], [(v_max-v_min),(w_max-w_min)], [v_res,w_res], [a for a in np.zeros(v_res*w_res)]) 
+v1_u1 = cj.newDist([v_min, u_min], [(v_max-v_min),(u_max-u_min)], [v_res,u_res], [a for a in np.zeros(v_res*u_res)]) 
 
-joint_v_w = cj.newDistFrom2(v0, w0)
-joint_v_u = cj.newDistFrom2(v0, u0)
+w1 = cj.newDist([w_min], [(w_max-w_min)], [w_res], [a for a in np.zeros(w_res)]) 
+v1 = cj.newDist([v_min], [(v_max-v_min)], [v_res], [a for a in np.zeros(v_res)]) 
+u1 = cj.newDist([u_min], [(u_max-u_min)], [u_res], [a for a in np.zeros(u_res)])
 
-joint_v_w_vw = cj.newDist([v_min,w_min,cj.base(c_vw)[2]],[(v_max-v_min),(w_max-w_min),cj.size(c_vw)[2]],[v_res,w_res,res], [a for a in np.zeros(v_res*w_res*res)])
-joint_v_u_vu = cj.newDist([v_min,u_min,cj.base(c_vu)[2]],[(v_max-v_min),(u_max-u_min),cj.size(c_vu)[2]],[v_res,u_res,res], [a for a in np.zeros(v_res*u_res*res)])
+cj.marginal(w0_v1_w1, 0, v1_w1)
+cj.marginal(u0_v1_u1, 0, v1_u1)
 
-cj.collider(joint_v_w, [0,1], c_vw, joint_v_w_vw)
-cj.collider(joint_v_u, [0,1], c_vu, joint_v_u_vu)
-
-# First find, the v_vw and v_vu marginals of the two joint probabilities we just calculated
-print("First find, the v_vw and v_vu marginals of the two joint probabilities we just calculated")
-joint_v_vw = cj.newDist([v_min, cj.base(c_vw)[2]], [(v_max-v_min), cj.size(c_vw)[2]], [v_res,res], [a for a in np.zeros(v_res*res)])
-joint_v_vu = cj.newDist([v_min, cj.base(c_vu)[2]], [(v_max-v_min), cj.size(c_vu)[2]], [v_res,res], [a for a in np.zeros(v_res*res)])
-
-cj.marginal(joint_v_w_vw, 1, joint_v_vw)
-cj.marginal(joint_v_u_vu, 1, joint_v_vu)
-
-# Now calculate the conditionals wv|v and uv|v
-print("Now calculate the conditionals wv|v and uv|v")
-vw_given_v = cj.newDist([v_min, cj.base(c_vw)[2]], [(v_max-v_min), cj.size(c_vw)[2]], [v_res,res], [a for a in np.zeros(v_res*res)])
-vu_given_v = cj.newDist([v_min, cj.base(c_vu)[2]], [(v_max-v_min), cj.size(c_vu)[2]], [v_res,res], [a for a in np.zeros(v_res*res)])
-
-cj.conditional(joint_v_vw, [0], v0, vw_given_v)
-cj.conditional(joint_v_vu, [0], v0, vu_given_v)
-
-# Now calculate the joint probability wv uv
-print("Now calculate the joint probability wv uv")
-joint_v_vw_vu = cj.newDist([v_min,cj.base(c_vw)[2],cj.base(c_vu)[2]],[(v_max-v_min),cj.size(c_vw)[2],cj.size(c_vu)[2]],[v_res,res,res], [a for a in np.zeros(v_res*res*res)])
-
-cj.fork(v0, 0, vw_given_v, 0, vu_given_v, joint_v_vw_vu)
-
-joint_vw_vu = cj.newDist([cj.base(c_vw)[2],cj.base(c_vu)[2]],[cj.size(c_vw)[2],cj.size(c_vu)[2]],[res,res], [a for a in np.zeros(res*res)])
-
-cj.marginal(joint_v_vw_vu, 0, joint_vw_vu)
-
-# Calculate v1 from the joint distribution of vw and vu
-print("Grab v1 from the joint distirbution")
-
-joint_vw_vu_v1 = cj.newDist([cj.base(c_vw)[2],cj.base(c_vu)[2],v_min],[cj.size(c_vw)[2],cj.size(c_vu)[2],(v_max-v_min)],[res,res,v_res], [a for a in np.zeros(res*res*v_res)])
-marginal_vw_v1 = cj.newDist([cj.base(c_vw)[2],v_min],[cj.size(c_vw)[2],(v_max-v_min)],[res,v_res], [a for a in np.zeros(res*v_res)])
-marginal_vw = cj.newDist([cj.base(c_vw)[2]],[cj.size(c_vw)[2]],[res], [a for a in np.zeros(res)])
-marginal_vu_v1 = cj.newDist([cj.base(c_vu)[2],v_min],[cj.size(c_vu)[2],(v_max-v_min)],[res,v_res], [a for a in np.zeros(res*v_res)])
-marginal_vu = cj.newDist([cj.base(c_vu)[2]],[cj.size(c_vu)[2]],[res], [a for a in np.zeros(res)])
-v1 = cj.newDist([v_min],[(v_max-v_min)],[v_res],[a for a in np.zeros(v_res)])
-
-cj.collider(joint_vw_vu, [0,1], c_v_prime, joint_vw_vu_v1)
-
-cj.marginal(joint_vw_vu_v1, 1, marginal_vw_v1)
-cj.marginal(marginal_vw_v1, 0, v1)
-
-cj.marginal(marginal_vw_v1, 1, marginal_vw)
-
-cj.marginal(joint_vw_vu_v1, 0, marginal_vu_v1)
-cj.marginal(marginal_vu_v1, 1, marginal_vu)
-
-v1_given_vw = cj.newDist([cj.base(c_vw)[2],v_min],[cj.size(c_vw)[2],(v_max-v_min)],[res,v_res], [a for a in np.zeros(res*v_res)])
-v1_given_vu = cj.newDist([cj.base(c_vu)[2],v_min],[cj.size(c_vu)[2],(v_max-v_min)],[res,v_res], [a for a in np.zeros(res*v_res)])
-marginal_w0_vw_vu = cj.newDist([w_min,cj.base(c_vw)[2],cj.base(c_vu)[2]],[(w_max-w_min),cj.size(c_vw)[2],cj.size(c_vu)[2]],[w_res,res,res], [a for a in np.zeros(w_res*res*res)])
-marginal_w0_vw_v1 = cj.newDist([w_min,cj.base(c_vw)[2],v_min],[(w_max-w_min),cj.size(c_vw)[2],(v_max-v_min)],[w_res,res,v_res], [a for a in np.zeros(w_res*res*v_res)])
-
-cj.conditional(marginal_vw_v1, [0], marginal_vw, v1_given_vw)
-cj.conditional(marginal_vu_v1, [0], marginal_vu, v1_given_vu)
-
-# First, we need to calculate the conditionals v1|w0 and v1|u0
-
-# For these distributions, we have w0 -> vw -> v1 and u0 -> vu -> v1
-
-joint_w0_vw = cj.newDist([w_min,cj.base(c_vw)[2]],[(w_max-w_min),cj.size(c_vw)[2]],[w_res,res], [a for a in np.zeros(w_res*res)])
-cj.marginal(joint_v_w_vw, 0, joint_w0_vw)
-
-v1_given_vw = cj.newDist([cj.base(c_vw)[2],v_min],[cj.size(c_vw)[2],(v_max-v_min)],[res,v_res], [a for a in np.zeros(res*v_res)])
-cj.conditional(marginal_vw_v1, [0], marginal_vw, v1_given_vw)
-
-joint_w0_vw_v1 = cj.newDist([w_min,cj.base(c_vw)[2],v_min],[(w_max-w_min),cj.size(c_vw)[2],(v_max-v_min)],[w_res,res,v_res], [a for a in np.zeros(w_res*res*v_res)])
-marginal_w0_v1 = cj.newDist([w_min,v_min],[(w_max-w_min),(v_max-v_min)],[w_res,v_res], [a for a in np.zeros(w_res*v_res)])
-v1_given_w0 = cj.newDist([w_min,v_min],[(w_max-w_min),(v_max-v_min)],[w_res,v_res], [a for a in np.zeros(w_res*v_res)])
-
-cj.joint3D(joint_w0_vw, 1, v1_given_vw, joint_w0_vw_v1)
-cj.marginal(joint_w0_vw_v1, 1, marginal_w0_v1)
-cj.conditional(marginal_w0_v1, [0], w0, v1_given_w0)
-
-# Do it all again for u0
-
-joint_u0_vu = cj.newDist([u_min,cj.base(c_vu)[2]],[(u_max-u_min),cj.size(c_vu)[2]],[u_res,res], [a for a in np.zeros(u_res*res)])
-cj.marginal(joint_v_u_vu, 0, joint_u0_vu)
-
-v1_given_vu = cj.newDist([cj.base(c_vu)[2],v_min],[cj.size(c_vu)[2],(v_max-v_min)],[res,v_res], [a for a in np.zeros(res*v_res)])
-cj.conditional(marginal_vu_v1, [0], marginal_vu, v1_given_vu)
-
-joint_u0_vu_v1 = cj.newDist([u_min,cj.base(c_vu)[2],v_min],[(u_max-u_min),cj.size(c_vu)[2],(v_max-v_min)],[u_res,res,v_res], [a for a in np.zeros(u_res*res*v_res)])
-marginal_u0_v1 = cj.newDist([u_min,v_min],[(u_max-u_min),(v_max-v_min)],[u_res,v_res], [a for a in np.zeros(u_res*v_res)])
-v1_given_u0 = cj.newDist([u_min,v_min],[(u_max-u_min),(v_max-v_min)],[u_res,v_res], [a for a in np.zeros(u_res*v_res)])
-
-cj.joint3D(joint_u0_vu, 1, v1_given_vu, joint_u0_vu_v1)
-cj.marginal(joint_u0_vu_v1, 1, marginal_u0_v1)
-cj.conditional(marginal_u0_v1, [0], u0, v1_given_u0)
-
-# We can now correctly define the joint distributions v',m' and v',u' and this should be the same each iteration
-
-joint_w0_v1_w1 = cj.newDist([w_min,v_min,w_min],[(w_max-w_min),(v_max-v_min),(w_max-w_min)],[w_res,v_res,w_res], [a for a in np.zeros(w_res*v_res*w_res)])
-joint_u0_v1_u1 = cj.newDist([u_min,v_min,u_min],[(u_max-u_min),(v_max-v_min),(u_max-u_min)],[u_res,v_res,u_res], [a for a in np.zeros(u_res*v_res*u_res)])
-joint_v1_w1 = cj.newDist([v_min,w_min],[(v_max-v_min),(w_max-w_min)],[v_res,w_res], [a for a in np.zeros(v_res*w_res)])
-joint_v1_u1 = cj.newDist([v_min,u_min],[(v_max-v_min),(u_max-u_min)],[v_res,u_res], [a for a in np.zeros(v_res*u_res)])
-
-cj.fork(w0, 0, v1_given_w0, 0, w1_given_w0, joint_w0_v1_w1)
-cj.fork(u0, 0, v1_given_u0, 0, u1_given_u0, joint_u0_v1_u1)
-
-cj.marginal(joint_w0_v1_w1, 0, joint_v1_w1)
-cj.marginal(joint_u0_v1_u1, 0, joint_v1_u1)
-
-# Record v0,w0,u0 and v1,w1,u1 here if we wish.
-
-# For each iteration, let's calculate a new set of variables v2,w2,u2 then shift everything backward
+cj.marginal(v1_w1, 0, w1)
+cj.marginal(v1_w1, 1, v1)
+cj.marginal(v1_u1, 0, u1)
 
 v2 = cj.newDist([v_min],[(v_max-v_min)],[v_res],[a for a in np.zeros(v_res)])
 w2 = cj.newDist([w_min],[(w_max-w_min)],[w_res],[a for a in np.zeros(w_res)])
 u2 = cj.newDist([u_min],[(u_max-u_min)],[u_res],[a for a in np.zeros(u_res)])
 
-joint_v2_w2 = cj.newDist([v_min,w_min],[(v_max-v_min),(w_max-w_min)],[v_res,w_res], [a for a in np.zeros(v_res*w_res)])
-joint_v2_u2 = cj.newDist([v_min,u_min],[(v_max-v_min),(u_max-u_min)],[v_res,u_res], [a for a in np.zeros(v_res*u_res)])
+v2_w2 = cj.newDist([v_min,w_min],[(v_max-v_min),(w_max-w_min)],[v_res,w_res], [a for a in np.zeros(v_res*w_res)])
+v2_u2 = cj.newDist([v_min,u_min],[(v_max-v_min),(u_max-u_min)],[v_res,u_res], [a for a in np.zeros(v_res*u_res)])
 
 # Start the simulation
 cj.start()
@@ -812,125 +705,66 @@ miind_redux_rates = []
 
 # Lets try 10 iterations
 for iteration in range(1000):
-    # Calculate w' and u'
-
-    cj.joint2Di(w1, wI, joint_w0_wI)
-    cj.joint2Di(u1, uI, joint_u0_uI)
-
-    cj.collider(joint_w0_wI, [0,1], c_w_prime, joint_w0_wI_w1)
-    cj.collider(joint_u0_uI, [0,1], c_u_prime, joint_u0_uI_u1)
     
-    cj.marginal(joint_w0_wI_w1, 0, marginal_wI_w1)
-    cj.marginal(joint_u0_uI_u1, 0, marginal_uI_u1)
+    cj.multiply([v1_w1,c_vw], [[1,0],[1,0,2]], w0_v0_vw, [0,1,2])
+    cj.multiply([v1_u1,c_vu], [[1,0],[1,0,2]], u0_v0_vu, [0,1,2])
 
-    cj.marginal(marginal_wI_w1, 0, w2)
-    cj.marginal(marginal_uI_u1, 0, u2)
+    cj.marginal(w0_v0_vw, 0, v0_vw)
+    cj.marginal(u0_v0_vu, 0, v0_vu)
+    cj.conditional(v0_vw, [0], v1, vw_given_v0)
+    cj.conditional(v0_vu, [0], v1, vu_given_v0)
 
-    # Store the marginal conditional w1|w0 for later when we want to calculate joint w1_v1
-    cj.marginal(joint_w0_wI_w1, 1, marginal_w0_w1)
-    cj.marginal(joint_u0_uI_u1, 1, marginal_u0_u1)
-    cj.conditional(marginal_w0_w1, [0], w1, w1_given_w0)
-    cj.conditional(marginal_u0_u1, [0], u1, u1_given_u0)
-
-    # Calculate v'
-
-    # vw and vu
-    cj.collider(joint_v1_w1, [0,1], c_vw, joint_v_w_vw)
-    cj.collider(joint_v1_u1, [0,1], c_vu, joint_v_u_vu)
-
-    cj.marginal(joint_v_w_vw, 1, joint_v_vw)
-    cj.marginal(joint_v_u_vu, 1, joint_v_vu)
-
-    #cj.multiply([joint_v_vw,joint_v_vu], [[0,1],[0,2]], joint_v_vw_vu, [0,1,2])
-
-    cj.conditional(joint_v_vw, [0], v1, vw_given_v)
-    cj.conditional(joint_v_vu, [0], v1, vu_given_v)
+    cj.multiply([w0_v0_vw, vu_given_v0], [[0,3,1],[3,2]], w0_vw_vu, [0,1,2])
+    cj.multiply([u0_v0_vu, vw_given_v0], [[0,3,2],[3,1]], u0_vw_vu, [0,1,2])
     
-    cj.fork(v1, 0, vw_given_v, 0, vu_given_v, joint_v_vw_vu)
+    cj.multiply([w0_vw_vu, c_v_prime], [[0,1,3],[1,3,2]], w0_vw_v1, [0,1,2])
+    cj.multiply([u0_vw_vu, c_v_prime], [[0,3,1],[3,1,2]], u0_vu_v1, [0,1,2])
+
+    cj.marginal(w0_vw_v1, 1, w0_v1)
+    cj.marginal(u0_vu_v1, 1, u0_v1)
+    cj.conditional(w0_v1, [0], w1, v1_given_w0)
+    cj.conditional(u0_v1, [0], u1, v1_given_u0)
     
-    cj.marginal(joint_v_vw_vu, 0, joint_vw_vu)
-    
-    cj.collider(joint_vw_vu, [0,1], c_v_prime, joint_vw_vu_v1)
+    cj.multiply([w1,wI,c_w_prime,v1_given_w0], [[0],[3],[0,3,2],[0,1]], w0_v1_w1, [0,1,2])
+    cj.multiply([u1,uI,c_u_prime,v1_given_u0], [[0],[3],[0,3,2],[0,1]], u0_v1_u1, [0,1,2])
 
-    cj.marginal(joint_vw_vu_v1, 1, marginal_vw_v1)
-    cj.marginal(marginal_vw_v1, 1, marginal_vw)
-
-    cj.marginal(joint_vw_vu_v1, 0, marginal_vu_v1)
-    cj.marginal(marginal_vu_v1, 1, marginal_vu)
-
-    vw_v_dist = cj.readDist(marginal_vw_v1)
-    vu_v_dist = cj.readDist(marginal_vu_v1)
+    cj.marginal(w0_v1_w1, 0, v2_w2)
+    cj.marginal(u0_v1_u1, 0, v2_u2)
 
     threshold = -50.0
     reset = -70.6
     threshold_cell = int((threshold - cj.base(v2)[0]) / (cj.size(v2)[0] / cj.res(v2)[0]))
     reset_cell = int((reset - cj.base(v2)[0]) / (cj.size(v2)[0] / cj.res(v2)[0]))
-    
-    n_vw_v_mass = [a for a in vw_v_dist]
-    n_vu_v_mass = [a for a in vu_v_dist]
+
+    dist_v2_w2 = cj.readDist(v2_w2)
+    dist_v2_u2 = cj.readDist(v2_u2)
+    n_v2_w2_mass = [a for a in dist_v2_w2]
+    n_v2_u2_mass = [a for a in dist_v2_u2]
     total_reset_mass = 0.0
-    for j in range(cj.res(marginal_vw_v1)[0]): # for each column
-        for i in range(cj.res(marginal_vw_v1)[1]): 
-            index = (i * cj.res(marginal_vw_v1)[0]) + j
-            reset_index = (reset_cell * cj.res(marginal_vw_v1)[0]) + j
-            if i >= threshold_cell and vw_v_dist[index] > 0.0:
-                n_vw_v_mass[reset_index] += vw_v_dist[index]
-                n_vw_v_mass[index] = 0.0
-                total_reset_mass += vw_v_dist[index]
+    for j in range(cj.res(v2_w2)[1]): # for each column
+        for i in range(cj.res(v2_w2)[0]): 
+            index = (i * cj.res(v2_w2)[1]) + j
+            reset_index = (reset_cell * cj.res(v2_w2)[1]) + j
+            if j >= threshold_cell and dist_v2_w2[index] > 0.0:
+                n_v2_w2_mass[reset_index] += dist_v2_w2[index]
+                n_v2_w2_mass[index] = 0.0
+                total_reset_mass += dist_v2_w2[index]
 
-    for j in range(cj.res(marginal_vu_v1)[0]): # for each column
-        for i in range(cj.res(marginal_vu_v1)[1]): 
-            index = (i * cj.res(marginal_vu_v1)[0]) + j
-            reset_index = (reset_cell * cj.res(marginal_vu_v1)[0]) + j
-            if i >= threshold_cell and vu_v_dist[index] > 0.0:
-                n_vu_v_mass[reset_index] += vu_v_dist[index]
-                n_vu_v_mass[index] = 0.0
-                total_reset_mass += vu_v_dist[index]
+    for j in range(cj.res(v2_u2)[1]): # for each column
+        for i in range(cj.res(v2_u2)[0]): 
+            index = (i * cj.res(v2_u2)[1]) + j
+            reset_index = (reset_cell * cj.res(v2_u2)[1]) + j
+            if j >= threshold_cell and dist_v2_u2[index] > 0.0:
+                n_v2_u2_mass[reset_index] += dist_v2_u2[index]
+                n_v2_u2_mass[index] = 0.0
+                total_reset_mass += dist_v2_u2[index]
     
-    cj.update(marginal_vw_v1, n_vw_v_mass)
-    cj.update(marginal_vu_v1, n_vu_v_mass)
+    cj.update(v2_w2, n_v2_w2_mass)
+    cj.update(v2_u2, n_v2_u2_mass)
 
-    cj.marginal(marginal_vw_v1, 0, v2)
-
-    cj.conditional(marginal_vw_v1, [0], marginal_vw, v1_given_vw)
-    cj.conditional(marginal_vu_v1, [0], marginal_vu, v1_given_vu)
-
-    # First, we need to calculate the conditionals v1|w0 and v1|u0
-    # For these distributions, we have w0 -> vw -> v1 and u0 -> vu -> v1
-
-    cj.marginal(joint_v_w_vw, 0, joint_w0_vw)
-
-    cj.joint3D(joint_w0_vw, 1, v1_given_vw, joint_w0_vw_v1)
-    #cj.marginal(joint_w0_vw_v1, 1, marginal_w0_v1)
-
-    cj.multiply([joint_v_w_vw,joint_v_vu], [[3,0,1],[3,2]], marginal_w0_vw_vu, [0,1,2])
-
-    cj.multiply([marginal_w0_vw_vu,c_v_prime], [[0,1,3],[1,3,2]], marginal_w0_vw_v1, [0,1,2])
-
-    cj.marginal(marginal_w0_vw_v1, 1, marginal_w0_v1)
-
-    plotDist2D(marginal_w0_v1)
-    plt.show()
-
-    cj.conditional(marginal_w0_v1, [0], w1, v1_given_w0)
-
-    # Do it all again for u0
-
-    cj.marginal(joint_v_u_vu, 0, joint_u0_vu)
-    
-    cj.joint3D(joint_u0_vu, 1, v1_given_vu, joint_u0_vu_v1)
-    cj.marginal(joint_u0_vu_v1, 1, marginal_u0_v1)
-
-    #cj.multiply([joint_v_u_vu,joint_v_vw,c_v_prime], [[1,0,2],[1,3],[2,3,4]], marginal_u0_v1, [0,4])
-
-    cj.conditional(marginal_u0_v1, [0], u1, v1_given_u0)
-
-    # We can now correctly define the joint distributions v',m' and v',u' and this should be the same each iteration
-    cj.fork(w1, 0, v1_given_w0, 0, w1_given_w0, joint_w0_v1_w1)
-    cj.fork(u1, 0, v1_given_u0, 0, u1_given_u0, joint_u0_v1_u1)
-
-    cj.marginal(joint_w0_v1_w1, 0, joint_v2_w2) 
-    cj.marginal(joint_u0_v1_u1, 0, joint_v2_u2)
+    cj.marginal(v2_w2, 0, w2)
+    cj.marginal(v2_w2, 1, v2)
+    cj.marginal(v2_u2, 0, u2)
 
     # Record distributions if you wish here.
 
@@ -1011,8 +845,8 @@ for iteration in range(1000):
     cj.transfer(v2,v1)
     cj.transfer(w2,w1)
     cj.transfer(u2,u1)
-    cj.transfer(joint_v2_w2, joint_v1_w1)
-    cj.transfer(joint_v2_u2, joint_v1_u1)
+    cj.transfer(v2_w2, v1_w1)
+    cj.transfer(v2_u2, v1_u1)
 
 fig, ax = plt.subplots(1,1)
 ax.plot(range(len(jazz_rates)), jazz_rates)

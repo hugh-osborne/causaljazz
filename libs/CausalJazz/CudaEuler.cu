@@ -1372,12 +1372,58 @@ __global__ void multiplyGrids4D(
             for (unsigned int g = 0; g < num_grids; g++) {
                 unsigned int idx = 0;
                 for (unsigned int dim = 0; dim < grid_dim_counts[g]; dim++) {
-                    idx += index[dimension_ids[grid_dim_start_points[g] + dim]] * grid_res_offsets[dimension_ids[grid_dim_start_points[g] + dim]];
+                    idx += index[dimension_ids[grid_dim_start_points[g] + dim]] * grid_res_offsets[grid_dim_start_points[g] + dim];
+                    //printf("%i %i %i %i %i\n", g, dim, grid_dim_start_points[g], dimension_ids[grid_dim_start_points[g] + dim], grid_res_offsets[grid_dim_start_points[g] + dim]);
                 }
                 grid_total *= grids[g][idx];
             }
             total += grid_total;
+            
         }
         out_ABC[i] = total;
+    }
+}
+
+__global__ void multiplyGrids3D(
+    inttype num_ABC_cells,
+    fptype* out_ABC,
+    inttype A_res,
+    inttype B_res,
+    inttype C_res,
+    inttype num_grids,
+    fptype** grids,
+    inttype* grid_dim_start_points,
+    inttype* grid_dim_counts,
+    inttype* dimension_ids,
+    inttype* grid_res_offsets)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    inttype index_size[4];
+    index_size[0] = A_res;
+    index_size[1] = B_res;
+    index_size[2] = C_res;
+
+    for (int i = index; i < num_ABC_cells; i += stride) {
+
+        inttype C_joint = int(i / (A_res * B_res));
+        inttype B_joint = int(modulo(i, A_res * B_res) / A_res);
+        inttype A_joint = modulo(i, A_res);
+
+        inttype index[4];
+        index[0] = A_joint;
+        index[1] = B_joint;
+        index[2] = C_joint;
+
+        fptype grid_total = 1.0;
+        for (unsigned int g = 0; g < num_grids; g++) {
+            unsigned int idx = 0;
+            for (unsigned int dim = 0; dim < grid_dim_counts[g]; dim++) {
+                idx += index[dimension_ids[grid_dim_start_points[g] + dim]] * grid_res_offsets[grid_dim_start_points[g] + dim];
+            }
+            grid_total *= grids[g][idx];
+        }
+        out_ABC[i] = grid_total;
     }
 }
