@@ -515,7 +515,7 @@ res = 100
 v_res = 100
 w_res = 100
 u_res = 100
-I_res = 100
+I_res = 300
 
 v_max = -40.0
 v_min = -80.0
@@ -612,21 +612,16 @@ miind_ex = cj.poisson(pop3, [0,epsp,0])
 miind_in = cj.poisson(pop3, [0,0,ipsp])
 
 ######
-
 c_w_prime = cj.boundedFunction([w_min,wI_min],[(w_max-w_min),(wI_max-wI_min)],[w_res,I_res], w_prime, w_min, (w_max-w_min), w_res)
-
 c_u_prime = cj.boundedFunction([u_min,uI_min],[(u_max-u_min),(uI_max-uI_min)],[u_res,I_res], u_prime, u_min, (u_max-u_min), u_res)
 c_vw = cj.function([v_min,w_min],[(v_max-v_min),(w_max-w_min)],[v_res,w_res], vw, res)
 c_vu = cj.function([v_min,u_min],[(v_max-v_min),(u_max-u_min)],[v_res,u_res], vu, res)
-
 c_v_prime = cj.boundedFunction([cj.base(c_vw)[2],cj.base(c_vu)[2]], [cj.size(c_vw)[2],cj.size(c_vu)[2]], [res,res], v_prime, v_min, (v_max-v_min), v_res)
 
 w0_v0_vw = cj.newDist([w_min, v_min, cj.base(c_vw)[2]], [(w_max-w_min),(v_max-v_min), cj.size(c_vw)[2]], [w_res,v_res,res], [a for a in np.zeros(w_res*v_res*res)])
 cj.multiply([w0,v0,c_vw], [[0],[1],[1,0,2]], w0_v0_vw, [0,1,2])
-
 u0_v0_vu = cj.newDist([u_min, v_min, cj.base(c_vu)[2]], [(u_max-u_min),(v_max-v_min), cj.size(c_vu)[2]], [w_res,v_res,res], [a for a in np.zeros(w_res*v_res*res)])
 cj.multiply([u0,v0,c_vu], [[0],[1],[1,0,2]], u0_v0_vu, [0,1,2])
-
 v0_vw = cj.newDist([v_min, cj.base(c_vw)[2]], [(v_max-v_min),cj.size(c_vw)[2]], [v_res,res], [a for a in np.zeros(v_res*res)])
 v0_vu = cj.newDist([v_min, cj.base(c_vu)[2]], [(v_max-v_min),cj.size(c_vu)[2]], [v_res,res], [a for a in np.zeros(v_res*res)])
 vw_given_v0 = cj.newDist([v_min, cj.base(c_vw)[2]], [(v_max-v_min),cj.size(c_vw)[2]], [v_res,res], [a for a in np.zeros(v_res*res)])
@@ -636,7 +631,6 @@ cj.marginal(w0_v0_vw, 0, v0_vw)
 cj.marginal(u0_v0_vu, 0, v0_vu)
 cj.conditional(v0_vw, [0], v0, vw_given_v0)
 cj.conditional(v0_vu, [0], v0, vu_given_v0)
-
 w0_vw_vu = cj.newDist([w_min, cj.base(c_vw)[2], cj.base(c_vu)[2]], [(w_max-w_min),cj.size(c_vw)[2],cj.size(c_vu)[2]], [w_res,res,res], [a for a in np.zeros(w_res*res*res)])
 u0_vw_vu = cj.newDist([u_min, cj.base(c_vw)[2], cj.base(c_vu)[2]], [(u_max-u_min),cj.size(c_vw)[2],cj.size(c_vu)[2]], [u_res,res,res], [a for a in np.zeros(u_res*res*res)])
 
@@ -659,11 +653,13 @@ cj.marginal(u0_vu_v1, 1, u0_v1)
 cj.conditional(w0_v1, [0], w0, v1_given_w0)
 cj.conditional(u0_v1, [0], u0, v1_given_u0)
 
+
 w0_v1_w1 = cj.newDist([w_min, v_min, w_min], [(w_max-w_min),(v_max-v_min),(w_max-w_min)], [w_res,v_res,w_res], [a for a in np.zeros(w_res*v_res*w_res)]) 
 u0_v1_u1 = cj.newDist([u_min, v_min, u_min], [(u_max-u_min),(v_max-v_min),(u_max-u_min)], [u_res,v_res,u_res], [a for a in np.zeros(u_res*v_res*u_res)]) 
 
 cj.multiply([w0,wI,c_w_prime,v1_given_w0], [[0],[3],[0,3,2],[0,1]], w0_v1_w1, [0,1,2])
 cj.multiply([u0,uI,c_u_prime,v1_given_u0], [[0],[3],[0,3,2],[0,1]], u0_v1_u1, [0,1,2])
+
 
 v1_w1 = cj.newDist([v_min, w_min], [(v_max-v_min),(w_max-w_min)], [v_res,w_res], [a for a in np.zeros(v_res*w_res)]) 
 v1_u1 = cj.newDist([v_min, u_min], [(v_max-v_min),(u_max-u_min)], [v_res,u_res], [a for a in np.zeros(v_res*u_res)]) 
@@ -678,6 +674,7 @@ cj.marginal(u0_v1_u1, 0, v1_u1)
 cj.marginal(v1_w1, 0, w1)
 cj.marginal(v1_w1, 1, v1)
 cj.marginal(v1_u1, 0, u1)
+
 
 v2 = cj.newDist([v_min],[(v_max-v_min)],[v_res],[a for a in np.zeros(v_res)])
 w2 = cj.newDist([w_min],[(w_max-w_min)],[w_res],[a for a in np.zeros(w_res)])
@@ -743,18 +740,18 @@ for iteration in range(1000):
     total_reset_mass = 0.0
     for j in range(cj.res(v2_w2)[1]): # for each column
         for i in range(cj.res(v2_w2)[0]): 
-            index = (i * cj.res(v2_w2)[1]) + j
-            reset_index = (reset_cell * cj.res(v2_w2)[1]) + j
-            if j >= threshold_cell and dist_v2_w2[index] > 0.0:
+            index = (j * cj.res(v2_w2)[0]) + i
+            reset_index = (j * cj.res(v2_w2)[0]) + reset_cell
+            if i >= threshold_cell and dist_v2_w2[index] > 0.0:
                 n_v2_w2_mass[reset_index] += dist_v2_w2[index]
                 n_v2_w2_mass[index] = 0.0
                 total_reset_mass += dist_v2_w2[index]
 
     for j in range(cj.res(v2_u2)[1]): # for each column
         for i in range(cj.res(v2_u2)[0]): 
-            index = (i * cj.res(v2_u2)[1]) + j
-            reset_index = (reset_cell * cj.res(v2_u2)[1]) + j
-            if j >= threshold_cell and dist_v2_u2[index] > 0.0:
+            index = (j * cj.res(v2_u2)[0]) + i
+            reset_index = (j * cj.res(v2_u2)[0]) + reset_cell
+            if i >= threshold_cell and dist_v2_u2[index] > 0.0:
                 n_v2_u2_mass[reset_index] += dist_v2_u2[index]
                 n_v2_u2_mass[index] = 0.0
                 total_reset_mass += dist_v2_u2[index]
@@ -813,7 +810,7 @@ for iteration in range(1000):
     # The monte carlo hist function gives density not mass (booo)
     # so let's just convert to density here
     
-    if (iteration % 10 == 0) :
+    if (iteration % 1 == 0) :
         dist_v = cj.readDist(v0)
         dist_w = cj.readDist(w0)
         dist_u = cj.readDist(u0)

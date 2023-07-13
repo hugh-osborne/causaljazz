@@ -428,27 +428,33 @@ CudaGrid CudaGridGenerator::generateCudaGridFromFunction(std::vector<double> _ba
                 int lo_out_cell = int(lo_shifted);
 
                 if (hi_out_cell == lo_out_cell) {
-                    unsigned int hi_cell_id = a + (_res[0] * b) + (hi_out_cell * _res[0] * _res[1]);
+                    int hi_cell_id = a + (_res[0] * b) + (hi_out_cell * _res[0] * _res[1]);
+
+                    if (hi_cell_id >= (int)output_res)
+                        hi_cell_id = (int)output_res - 1;
+                    if (hi_cell_id < 0)
+                        hi_cell_id = 0;
+
                     conditional_flattened[hi_cell_id] = 1.0;
                 }
                 else {
-                    unsigned int desired_out_cell = lo_out_cell;
+                    int desired_out_cell = (int)lo_out_cell;
 
                     double prop = (((lo_out_cell + 1) * out_cell_width) + out_base - val_min) / (val_max - val_min);
                     if (desired_out_cell >= (int)output_res)
                         desired_out_cell = (int)output_res - 1;
                     if (desired_out_cell < 0)
                         desired_out_cell = 0;
-                    unsigned int lo_cell_id = a + (_res[0] * b) + (desired_out_cell * _res[0] * _res[1]);
+                    int lo_cell_id = a + (_res[0] * b) + (desired_out_cell * _res[0] * _res[1]);
                     conditional_flattened[lo_cell_id] += prop;
 
-                    for (unsigned int c = lo_out_cell + 1; c < hi_out_cell; c++) {
+                    for (int c = lo_out_cell + 1; c < hi_out_cell; c++) {
                         desired_out_cell = c;
                         if (desired_out_cell >= (int)output_res)
                             desired_out_cell = (int)output_res - 1;
                         if (desired_out_cell < 0)
                             desired_out_cell = 0;
-                        unsigned int lo_cell_id = a + (_res[0] * b) + (desired_out_cell * _res[0] * _res[1]);
+                        int lo_cell_id = a + (_res[0] * b) + (desired_out_cell * _res[0] * _res[1]);
                         conditional_flattened[lo_cell_id] += out_cell_width / (val_max - val_min);
                     }
 
@@ -458,7 +464,7 @@ CudaGrid CudaGridGenerator::generateCudaGridFromFunction(std::vector<double> _ba
                         desired_out_cell = (int)output_res - 1;
                     if (desired_out_cell < 0)
                         desired_out_cell = 0;
-                    unsigned int hi_cell_id = a + (_res[0] * b) + (desired_out_cell * _res[0] * _res[1]);
+                    int hi_cell_id = a + (_res[0] * b) + (desired_out_cell * _res[0] * _res[1]);
                     conditional_flattened[hi_cell_id] += prop;
                 }
             }
