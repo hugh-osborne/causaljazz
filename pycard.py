@@ -86,25 +86,31 @@ def plotDist3D(dist, res=(100,100,100)):
 import cupy as cp
 
 class NdGrid:
-    def __init__(self, _base, _size, _res, _data):
+    def __init__(self, _base, _size, _res, _data=None):
         self.base = _base
         self.size = _size
-        self.res = res
-        self.data = cp.array(_data)
+        self.res = _res
+        if _data is not None:
+            self.data = cp.asarray(_data,dtype=cp.float32)
 
         temp_res_offsets = [1]
-        self.calcResOffsets(1, temp_res_offsets, self.res)
-
-        self.res_offsets = [a for a in temp_res_offsets]
+        self.res_offsets = self.calcResOffsets(1, temp_res_offsets, self.res)
+        
         self.cell_widths = [self.size[a] / self.res[a] for a in range(self.numDimensions())]
         
         self.total_cells = 1
         for r in self.res:
             self.total_cells *= r
 
+    def readData(self):
+        return cp.asnumpy(self.data)
+
+    def updateData(self, _data):
+        self.data = cp.asarray(_data,dtype=cp.float32)
+
     def calcResOffsets(self, count, offsets, res):
         if len(res) == 1:
-            return
+            return offsets
 
         count *= res[0]
         offsets = offsets + [count]
@@ -114,9 +120,9 @@ class NdGrid:
             new_res = new_res + [res[i]]
 
         if len(new_res) == 1:
-            return
+            return offsets
 
-        self.calcResOffsets(count, offsets, new_res)
+        return self.calcResOffsets(count, offsets, new_res)
 
     def numDimensions(self):
         return len(self.base)
@@ -148,27 +154,137 @@ class NdGrid:
 
         return centroid
 
+    def getContainingCellWeightedCoords(self, point):
+        coords = [0 for a in range(self.numDimensions())]
+        weights = [1.0 for a in range(self.numDimensions())]
+
+        for d in range(self.numDimensions()):
+            exact = (point[d]-self.base[d]) / self.cell_widths[d]
+            coords[d] = int(exact)
+            weights[d] = exact - coords[d]
+            if coords[d] < 0:
+                coords[d] = 0
+                weights[d] = 1.0
+            if coords[d] >= self.res[d]:
+                coords[d] = self.res[d]-1
+                weights[d] = 1.0
+
+        return coords, weights
+
 
 grids = []
 
-def newDist(base, size, res, data):
+def newDist(base, size, res, data=None):
     grids = grids + [NdGrid(base,size,res,data)]
     return len(grids)-1
 
-#def generateTransitionMatrix(grid, func):
-#    out_max = 0.0
-#    out_min = 0.0
+def generateConditionalTransitionCSR(grid_in, func, grid_out):
+    transitions = [[] for a in range(grid_out.total_cells)]
+    
+    offset = 0
+    num_transitions = 0
+    for r in range(grid_in.total_cells):
+        start_point = grid_in.getCellCentroid(r)
+        coords,weights = grid_out.getContainingCellWeightedCoords(func(start_point))
+        transitions[grid_out.getCellNum(coords)] = transitions[grid_out.getCellNum(coords)] + [(r,1.0)]
+        num_transitions += 1
 
-#    results = [0 for a in range(grid.total_cells)]
+    out_transitions_cells = [a for a in range(num_transitions)]
+    out_transitions_props = [a for a in range(num_transitions)]
+    out_transitions_counts = [a for a in range(grid_out.total_cells)]
+    out_transitions_offsets = [a for a in range(grid_out.total_cells)]
 
-#    for r in range(grid.total_cells):
-#        start_point = grid.getCellCentroid(r)
-#        end_point = func(start_point)
+    transition_count = 0
+    cell_count = 0
+    for t in transitions:
+        # Don't worry about weighting just yet just do a single cell
+        count = len(t)
+        for r in t:
+            out_transitions_cells[transition_count] = r[0]
+            out_transitions_props[transition_count] = r[1]
+            transition_count += 1
+        out_transitions_offsets[cell_count] = offset
+        out_transitions_counts[cell_count] = count
+        offset += count
+        cell_count += 1
 
-def generateGridFromFunction(base, size, res, func, out_res):
+    return out_transitions_cells, out_transitions_props, out_transitions_counts, out_transitions_offsets 
+
+def generateConditional(grid_in, func, grid_out):
+    conditional = [0 for a in range(grid_in.total_cells*grid_out.total_cells)]
+
+    for r in range(grid_in.total_cells):
+        start_point = grid_in.getCellCentroid(r)
+        coords,weights = grid_out.getContainingCellWeightedCoords(func(start_point))
+        conditional[(r*grid_out.total_cells) + grid_out.getCellNum(coords)] = 1.0
+
+    return conditional
 
 
+# For cases where the number of variables (or the combined size) on either end of the arrow is manageable,
+# just use the old MIIND-style transition matrix to go from one set of variables
+# to another.
+# For example, ABCD -> EF, and ABCD -> EFGH are fine. ABCDEF -> GH is not fine because there's unlikely 
+# to be space to hold either the transition matrix, or the joint distribution ABCDEF itself (unless some 
+# of those are binary or enumerated variables)
 
+
+cuda_source = r'''
+extern "C"{
+
+__device__ int modulo(int a, int b) {
+    int r = a % b;
+    return r < 0 ? r + b : r;
+}
+
+__global__ void convolveKernel(
+    unsigned int num_cells,
+    float* grid_out,
+    float* grid_in,
+    float* kernel,
+    unsigned int kernel_width,
+    unsigned int dim_stride)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    for (int i = index; i < num_cells; i += stride) {
+        grid_out[i] = 0.0;
+        for (int j = 0; j < kernel_width; j++) {
+            grid_out[i] += grid_in[modulo(i - ((j - int(kernel_width/2.0)) * dim_stride), num_cells)] * kernel[j];
+        }
+    }
+}
+
+__global__
+void applyJointTransition(
+    unsigned int num_out_grid_cells,
+    float* out_grid,
+    unsigned int* transition_cells,
+    float* transition_props,
+    unsigned int* transitions_counts,
+    unsigned int* transitions_offsets,
+    float* in_grid) 
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;   
+    
+    for (int i = index; i < num_out_grid_cells; i += stride) {
+        out_grid[i] = 0.0;
+        for (int t = transitions_offsets[i]; t < transitions_offsets[i] + transitions_counts[i]; t++) {
+            out_grid[i] += in_grid[transition_cells[t]] * transition_props[t];
+        }
+    }
+}
+
+}'''
+
+cuda_module = cp.RawModule(code=cuda_source)
+cuda_function_applyJointTransition = cuda_module.get_function('applyJointTransition')
+cuda_function_convolveKernel = cuda_module.get_function('convolveKernel')
+
+# For cases where the dimensionality limit of apply_joint_transition_kernel is hit, we need a new tactic. 
+# Don't know what that is yet...
 
 # 3D cond as it should be in its entirety - but we're going to split this into separate functions
 def cond(y):
@@ -329,7 +445,7 @@ for i in range(len(wI_events)-1):
         wIpdf_final[i] += poisson.pmf(e, w_rate*0.1) * lower_prop
         wIpdf_final[i+1] += poisson.pmf(e, w_rate*0.1) * upper_prop
 wIpdf = wIpdf_final
-wI = cj.newDist([wI_min], [wI_max], [I_res], [a for a in wIpdf])
+wI = cj.newDist([wI_min], [(wI_max-wI_min)], [I_res], [a for a in wIpdf])
 
 u_rate = 2
 ipsp = 0.5
@@ -351,7 +467,34 @@ for i in range(len(uI_events)-1):
         uIpdf_final[i] += poisson.pmf(e, u_rate*0.1) * lower_prop
         uIpdf_final[i+1] += poisson.pmf(e, u_rate*0.1) * upper_prop
 uIpdf = uIpdf_final
-uI = cj.newDist([uI_min], [uI_max], [I_res], [a for a in uIpdf])
+uI = cj.newDist([uI_min], [(uI_max-uI_min)], [I_res], [a for a in uIpdf])
+
+# pyMIIND
+
+initial_distribution = np.zeros(v_res*w_res*u_res)
+for cv in range(v_res):
+    for cw in range(w_res):
+        for cu in range(u_res):
+            initial_distribution[cv + (v_res*cw) + (v_res*w_res*cu)] = vpdf[cv]*wpdf[cw]*updf[cu]
+
+initial_dist_3D = np.zeros((v_res,w_res,u_res))
+for cv in range(v_res):
+    for cw in range(w_res):
+        for cu in range(u_res):
+            initial_dist_3D[cv,cw,cu] = vpdf[cv]*wpdf[cw]*updf[cu]
+
+pymiind_grid_1 = NdGrid([v_min,w_min,u_min], [(v_max-v_min),(w_max-w_min),(u_max-u_min)], [v_res,w_res,u_res], initial_dist_3D)
+pymiind_grid_2 = NdGrid([v_min,w_min,u_min], [(v_max-v_min),(w_max-w_min),(u_max-u_min)], [v_res,w_res,u_res], initial_dist_3D)
+cond_transitions_cells, cond_transitions_props, cond_transitions_counts, cond_transitions_offsets  = generateConditionalTransitionCSR(pymiind_grid_1,cond,pymiind_grid_2)
+
+cond_cells = cp.asarray(cond_transitions_cells,)
+cond_props = cp.asarray(cond_transitions_props,dtype=cp.float32)
+cond_counts = cp.asarray(cond_transitions_counts)
+cond_offsets = cp.asarray(cond_transitions_offsets)
+
+excitatory_kernel = NdGrid([wI_min], [(wI_max-wI_min)], [I_res], np.array([a for a in wIpdf]))
+inhibitory_kernel = NdGrid([uI_min], [(uI_max-uI_min)], [I_res], np.array([a for a in uIpdf]))
+
 
 # Initialise the monte carlo neurons
 mc_neurons = np.array([[norm.rvs(-70.6, 0.1, 1)[0],norm.rvs(0.0, 0.1, 1)[0],norm.rvs(0.0, 0.1, 1)[0]] for a in range(5000)])
@@ -518,6 +661,14 @@ for iteration in range(1000):
 
     # Record distributions if you wish here.
 
+    #if pyMIIND:
+
+    cuda_function_applyJointTransition((v_res*w_res*u_res,),(128,),(v_res*w_res*u_res, pymiind_grid_2.data, cond_cells, cond_props, cond_counts, cond_offsets, pymiind_grid_1.data))
+    cuda_function_convolveKernel((v_res*w_res*u_res,),(128,), (v_res*w_res*u_res, pymiind_grid_1.data, pymiind_grid_2.data, excitatory_kernel.data, I_res, v_res))
+    cuda_function_convolveKernel((v_res*w_res*u_res,),(128,), (v_res*w_res*u_res, pymiind_grid_2.data, pymiind_grid_1.data, inhibitory_kernel.data, I_res, v_res*w_res))
+    cp.copyto(pymiind_grid_1.data, pymiind_grid_2.data)
+    
+
     if show_monte_carlo:
         # Also run the monte carlo simulation 
     
@@ -584,7 +735,18 @@ for iteration in range(1000):
             ax[0,0].plot(np.linspace(v_min,v_max,v_res), miind_dist_v, linestyle='--')
             ax[0,1].plot(np.linspace(w_min,w_max,w_res), miind_dist_w, linestyle='--')
             ax[1,0].plot(np.linspace(u_min,u_max,u_res), miind_dist_u, linestyle='--')
-    
+        #if pyMIIND:
+        py_miind_v = cp.asnumpy(cp.sum(pymiind_grid_2.data, (1,2)))
+        py_miind_w = cp.asnumpy(cp.sum(pymiind_grid_2.data, (0,2)))
+        py_miind_u = cp.asnumpy(cp.sum(pymiind_grid_2.data, (0,1)))
+
+        py_miind_v = [a / ((v_max-v_min)/v_res) for a in py_miind_v]
+        py_miind_w = [a / ((w_max-w_min)/w_res) for a in py_miind_w]
+        py_miind_u = [a / ((u_max-u_min)/u_res) for a in py_miind_u]
+
+        ax[0,0].plot(np.linspace(v_min,v_max,v_res), py_miind_v, linestyle='-.')
+        ax[0,1].plot(np.linspace(w_min,w_max,w_res), py_miind_w, linestyle='-.')
+        ax[1,0].plot(np.linspace(u_min,u_max,u_res), py_miind_u, linestyle='-.')
         fig.tight_layout()
         plt.show()
 
