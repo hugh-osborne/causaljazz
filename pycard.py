@@ -91,7 +91,7 @@ class NdGrid:
         self.size = _size
         self.res = _res
         if _data is not None:
-            self.data = cp.asarray(_data,dtype=cp.float32)
+            self.data = cp.asarray(_data,dtype=cp.float32,order='F')
 
         temp_res_offsets = [1]
         self.res_offsets = self.calcResOffsets(1, temp_res_offsets, self.res)
@@ -106,7 +106,7 @@ class NdGrid:
         return cp.asnumpy(self.data)
 
     def updateData(self, _data):
-        self.data = cp.asarray(_data,dtype=cp.float32)
+        self.data = cp.asarray(_data,dtype=cp.float32,order='F')
 
     def calcResOffsets(self, count, offsets, res):
         if len(res) == 1:
@@ -428,7 +428,7 @@ u0 = cj.newDist([u_min],[(u_max-u_min)],[u_res],[a for a in updf])
 w_rate = 4
 epsp = 0.5
 wI_max_events = 5
-wI_min_events = -2
+wI_min_events = -5
 wI_max = wI_max_events*epsp
 wI_min = wI_min_events*epsp
 epsps = np.linspace(wI_min, wI_max, I_res)
@@ -447,12 +447,28 @@ for i in range(len(wI_events)-1):
 wIpdf = wIpdf_final
 wI = cj.newDist([wI_min], [(wI_max-wI_min)], [I_res], [a for a in wIpdf])
 
+# For pymiind, I kernel cell size must match the joint cell size
+wI_res = int((wI_max-wI_min) / ((w_max-w_min)/w_res))+1
+pymiind_wI = [0 for a in range(wI_res)]
+ratio = I_res / wI_res
+val_counter = 0.0
+pos_counter = 0
+for i in range(I_res):
+    pos_counter += 1
+    if pos_counter > ratio:
+        pos_counter = 0
+        val_counter += wIpdf[i] * (i % ratio)
+        pymiind_wI[int(i/ratio)] = val_counter
+        val_counter = wIpdf[i] * (1.0-(i % ratio))
+    else:
+        val_counter += wIpdf[i]
+
 u_rate = 2
 ipsp = 0.5
 uI_max_events = 5
-uI_min_events = -2
-uI_max = wI_max_events*epsp
-uI_min = wI_min_events*epsp
+uI_min_events = -5
+uI_max = wI_max_events*ipsp
+uI_min = wI_min_events*ipsp
 ipsps = np.linspace(uI_min, uI_max, I_res)
 uI_events = np.linspace(uI_min_events, uI_max_events, I_res)
 uIpdf_final = [0 for a in uI_events]
@@ -468,6 +484,21 @@ for i in range(len(uI_events)-1):
         uIpdf_final[i+1] += poisson.pmf(e, u_rate*0.1) * upper_prop
 uIpdf = uIpdf_final
 uI = cj.newDist([uI_min], [(uI_max-uI_min)], [I_res], [a for a in uIpdf])
+
+uI_res = int((uI_max-uI_min) / ((u_max-u_min)/u_res))+1
+pymiind_uI = [0 for a in range(uI_res)]
+ratio = I_res / uI_res
+val_counter = 0.0
+pos_counter = 0
+for i in range(I_res):
+    pos_counter += 1
+    if pos_counter > ratio:
+        pos_counter = 0
+        val_counter += uIpdf[i] * (i % ratio)
+        pymiind_uI[int(i/ratio)] = val_counter
+        val_counter = uIpdf[i] * (1.0-(i % ratio))
+    else:
+        val_counter += uIpdf[i]
 
 # pyMIIND
 
@@ -492,8 +523,8 @@ cond_props = cp.asarray(cond_transitions_props,dtype=cp.float32)
 cond_counts = cp.asarray(cond_transitions_counts)
 cond_offsets = cp.asarray(cond_transitions_offsets)
 
-excitatory_kernel = NdGrid([wI_min], [(wI_max-wI_min)], [I_res], np.array([a for a in wIpdf]))
-inhibitory_kernel = NdGrid([uI_min], [(uI_max-uI_min)], [I_res], np.array([a for a in uIpdf]))
+excitatory_kernel = NdGrid([wI_min], [(wI_max-wI_min)], [wI_res], np.array([a for a in pymiind_wI]))
+inhibitory_kernel = NdGrid([uI_min], [(uI_max-uI_min)], [uI_res], np.array([a for a in pymiind_uI]))
 
 
 # Initialise the monte carlo neurons
@@ -664,8 +695,8 @@ for iteration in range(1000):
     #if pyMIIND:
 
     cuda_function_applyJointTransition((v_res*w_res*u_res,),(128,),(v_res*w_res*u_res, pymiind_grid_2.data, cond_cells, cond_props, cond_counts, cond_offsets, pymiind_grid_1.data))
-    cuda_function_convolveKernel((v_res*w_res*u_res,),(128,), (v_res*w_res*u_res, pymiind_grid_1.data, pymiind_grid_2.data, excitatory_kernel.data, I_res, v_res))
-    cuda_function_convolveKernel((v_res*w_res*u_res,),(128,), (v_res*w_res*u_res, pymiind_grid_2.data, pymiind_grid_1.data, inhibitory_kernel.data, I_res, v_res*w_res))
+    cuda_function_convolveKernel((v_res*w_res*u_res,),(128,), (v_res*w_res*u_res, pymiind_grid_1.data, pymiind_grid_2.data, excitatory_kernel.data, wI_res, v_res))
+    cuda_function_convolveKernel((v_res*w_res*u_res,),(128,), (v_res*w_res*u_res, pymiind_grid_2.data, pymiind_grid_1.data, inhibitory_kernel.data, uI_res, v_res*w_res))
     cp.copyto(pymiind_grid_1.data, pymiind_grid_2.data)
     
 
