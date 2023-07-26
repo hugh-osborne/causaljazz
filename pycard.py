@@ -511,15 +511,17 @@ cell_base = [0.0 for a in range(dims)]
 first_cell = True
 current_dict = 0
 
+cell_base_coords = [0,0,0]
 for cv in range(v_res):
     for cw in range(w_res):
         for cu in range(u_res):
             val = vpdf[cv]*wpdf[cw]*updf[cu]
             if val > 0.0:
                 if first_cell:
+                    cell_base_coords = [cv,cw,cu]
                     cell_base = [v_min + cv*cell_widths[0], w_min + cw*cell_widths[1], u_min + cu*cell_widths[2]]
                     first_cell = False
-                cell_dict[current_dict][(cv,cw,cu)] = [val, []]
+                cell_dict[current_dict][(cv-cell_base_coords[0],cw-cell_base_coords[1],cu-cell_base_coords[2])] = [val, []]
 
 def calcTransitions(centroid, stepped_centroid, coord, d=0, target_coord=[], mass=1.0):
 
@@ -556,7 +558,8 @@ cs = tuple([0 for d in range(dims)])
 w_kernel_transitions[cs] = []
 for c in range(len(pymiind_wI)):
     if pymiind_wI[c] > 0.0:
-        w_kernel_transitions[cs] = w_kernel_transitions[cs] + [[(pymiind_wI[c], [c if d == w_kernel_dim else 0 for d in range(dims)])]]
+        w_kernel_transitions[cs] = w_kernel_transitions[cs] + [(pymiind_wI[c], [c-int(len(pymiind_wI)/2) if d == w_kernel_dim else 0 for d in range(dims)])]
+w_kernel_transitions[cs] = [1.0,w_kernel_transitions[cs]]
 
 u_kernel_dim = 2
 u_kernel_transitions = {}
@@ -564,7 +567,8 @@ cs = tuple([0 for d in range(dims)])
 u_kernel_transitions[cs] = []
 for c in range(len(pymiind_uI)):
     if pymiind_uI[c] > 0.0:
-        u_kernel_transitions[cs] = u_kernel_transitions[cs] + [[(pymiind_uI[c], [c if d == u_kernel_dim else 0 for d in range(dims)])]]
+        u_kernel_transitions[cs] = u_kernel_transitions[cs] + [(pymiind_uI[c], [c-int(len(pymiind_uI)/2) if d == u_kernel_dim else 0 for d in range(dims)])]
+u_kernel_transitions[cs] = [1.0,u_kernel_transitions[cs]]
 
 threshold = -50.4
 reset = -70.6
@@ -572,32 +576,26 @@ threshold_reset_dim = 0
 threshold_cell = int((threshold - cell_base[threshold_reset_dim])/cell_widths[threshold_reset_dim])
 reset_cell = int((reset - cell_base[threshold_reset_dim])/cell_widths[threshold_reset_dim])
 
-def updateCell(relative, new_cell_dict, cell_dict, transition, coord, func):
-    print(transition)
+def updateCell(relative, new_cell_dict, cell_dict, transition, coord, mass, func):
+    t = [a for a in transition[1]]
     if relative:
-        print(coord, transition)
         for d in range(len(coord)):
-            transition[1][d] = coord[d] + transition[1][d]
+            t[d] = coord[d] + t[d]
 
-    if transition[1][threshold_reset_dim] >= threshold_cell:
-        transition[1][threshold_reset_dim] = reset_cell
+    if t[threshold_reset_dim] >= threshold_cell:
+        t[threshold_reset_dim] = reset_cell
 
-
-    if tuple(transition[1]) not in new_cell_dict:
-        new_cell_dict[tuple(transition[1])] = [0.0,[]]
-
-    try:
-        new_cell_dict[tuple(transition[1])][1] = cell_dict[tuple(transition[1])][1]
-    except:
+    if tuple(t) not in new_cell_dict.keys():
+        new_cell_dict[tuple(t)] = [0.0,[]]
         centroid = [0 for a in range(len(coord))]
 
         for d in range(len(coord)):
-            centroid[d] = cell_base[d] + ((transition[1][d]+0.5)*cell_widths[d])
+            centroid[d] = cell_base[d] + ((t[d]+0.5)*cell_widths[d])
 
         stepped_centroid = func(centroid)
-        new_cell_dict[tuple(transition[1])][1] = calcTransitions(centroid, stepped_centroid, transition[1])
-
-    new_cell_dict[tuple(transition[1])][0] += cell_dict[coord][0]*transition[0]
+        new_cell_dict[tuple(t)][1] = calcTransitions(centroid, stepped_centroid, t)
+    
+    new_cell_dict[tuple(t)][0] += mass*transition[0]
 
 def calcCellCentroid(coords):
     centroid = [0 for a in range(dims)]
@@ -621,7 +619,7 @@ def calcMarginals(cell_dict):
 
     for d in range(dims):
         for v in vs[d]:
-            final_vs[d] = final_vs[d] + [v]
+            final_vs[d] = final_vs[d] + [cell_base[d] + (cell_widths[d]*(v+0.5))]
             final_vals[d] = final_vals[d] + [vs[d][v]]
 
     return final_vs, final_vals
@@ -820,18 +818,41 @@ for iteration in range(1000):
     # Record distributions if you wish here.
 
     #if CPUMIIND:
+
+    for a in cell_dict[(current_dict+1)%2].keys():
+        if a in cell_dict[current_dict].keys() and cell_dict[current_dict][a][0] < 0.000001:
+            if cell_dict[current_dict][a][0] < cell_dict[(current_dict+1)%2][a][0]:
+                del cell_dict[current_dict][a]
+        cell_dict[(current_dict+1)%2][a][0] = 0.0
     
     for coord in cell_dict[current_dict]:
         for ts in cell_dict[current_dict][coord][1]:
-            updateCell(False, cell_dict[(current_dict+1)%2], cell_dict[current_dict], ts, coord, cond)
-        print(w_kernel_transitions)
-        for ts in w_kernel_transitions[(0,0,0)]:
-            print("ts ", ts, " ts")
-            updateCell(True, cell_dict[(current_dict+1)%2], w_kernel_transitions, ts, coord, cond)
-        for ts in u_kernel_transitions[(0,0,0)]:
-            updateCell(True, cell_dict[(current_dict+1)%2], u_kernel_transitions, ts, coord, cond)
-
+            updateCell(False, cell_dict[(current_dict+1)%2], cell_dict[current_dict], ts, coord, cell_dict[current_dict][coord][0], cond)
     current_dict = (current_dict+1)%2
+
+    for a in cell_dict[(current_dict+1)%2].keys():
+        if a in cell_dict[current_dict].keys() and cell_dict[current_dict][a][0] < 0.000001:
+            if cell_dict[current_dict][a][0] < cell_dict[(current_dict+1)%2][a][0]:
+                del cell_dict[current_dict][a]
+        cell_dict[(current_dict+1)%2][a][0] = 0.0
+    
+    for coord in cell_dict[current_dict]:
+        for ts in w_kernel_transitions[(0,0,0)][1]:
+            updateCell(True, cell_dict[(current_dict+1)%2], w_kernel_transitions, ts, coord, cell_dict[current_dict][coord][0], cond)
+    current_dict = (current_dict+1)%2
+
+    for a in cell_dict[(current_dict+1)%2].keys():
+        if a in cell_dict[current_dict].keys() and cell_dict[current_dict][a][0] < 0.000001:
+            if cell_dict[current_dict][a][0] < cell_dict[(current_dict+1)%2][a][0]:
+                del cell_dict[current_dict][a]
+        cell_dict[(current_dict+1)%2][a][0] = 0.0
+    
+    for coord in cell_dict[current_dict]:
+        for ts in u_kernel_transitions[(0,0,0)][1]:
+            updateCell(True, cell_dict[(current_dict+1)%2], u_kernel_transitions, ts, coord, cell_dict[current_dict][coord][0], cond)
+    current_dict = (current_dict+1)%2
+    
+    print(len(cell_dict[current_dict].keys()))
 
 
     #if pyMIIND:
@@ -887,7 +908,7 @@ for iteration in range(1000):
     # The monte carlo hist function gives density not mass (booo)
     # so let's just convert to density here
     
-    if (iteration % 1 == 0) :
+    if (iteration % 10 == 0) :
         dist_v = cj.readDist(v0)
         dist_w = cj.readDist(w0)
         dist_u = cj.readDist(u0)
@@ -923,9 +944,13 @@ for iteration in range(1000):
         #if CPUMIIND:
         mpos, marginals = calcMarginals(cell_dict[current_dict])
 
-        ax[0,0].plot(mpos[0], marginals[0], linestyle='-.')
-        ax[0,1].plot(mpos[1], marginals[1], linestyle='-.')
-        ax[1,0].plot(mpos[2], marginals[2], linestyle='-.')
+        marginals[0] = [a / (cell_widths[0]) for a in marginals[0]]
+        marginals[1] = [a / (cell_widths[1]) for a in marginals[1]]
+        marginals[2] = [a / (cell_widths[2]) for a in marginals[2]]
+
+        ax[0,0].scatter(mpos[0], marginals[0])
+        ax[0,1].scatter(mpos[1], marginals[1])
+        ax[1,0].scatter(mpos[2], marginals[2])
 
         fig.tight_layout()
         plt.show()
