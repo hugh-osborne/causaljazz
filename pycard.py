@@ -510,6 +510,7 @@ cell_dict = [{},{}]
 cell_base = [0.0 for a in range(dims)]
 first_cell = True
 current_dict = 0
+remove_sum = 1.0
 
 cell_base_coords = [0,0,0]
 for cv in range(v_res):
@@ -573,17 +574,17 @@ u_kernel_transitions[cs] = [1.0,u_kernel_transitions[cs]]
 threshold = -50.4
 reset = -70.6
 threshold_reset_dim = 0
-threshold_cell = int((threshold - cell_base[threshold_reset_dim])/cell_widths[threshold_reset_dim])
-reset_cell = int((reset - cell_base[threshold_reset_dim])/cell_widths[threshold_reset_dim])
+miind_threshold_cell = int((threshold - cell_base[threshold_reset_dim])/cell_widths[threshold_reset_dim])
+miind_reset_cell = int((reset - cell_base[threshold_reset_dim])/cell_widths[threshold_reset_dim])
 
-def updateCell(relative, new_cell_dict, cell_dict, transition, coord, mass, func):
+def updateCell(relative, new_cell_dict, transition, coord, mass, func):
     t = [a for a in transition[1]]
     if relative:
         for d in range(len(coord)):
             t[d] = coord[d] + t[d]
-
-    if t[threshold_reset_dim] >= threshold_cell:
-        t[threshold_reset_dim] = reset_cell
+            
+    if t[threshold_reset_dim] >= miind_threshold_cell:
+        t[threshold_reset_dim] = miind_reset_cell
 
     if tuple(t) not in new_cell_dict.keys():
         new_cell_dict[tuple(t)] = [0.0,[]]
@@ -619,7 +620,7 @@ def calcMarginals(cell_dict):
 
     for d in range(dims):
         for v in vs[d]:
-            final_vs[d] = final_vs[d] + [cell_base[d] + (cell_widths[d]*(v+0.5))]
+            final_vs[d] = final_vs[d] + [cell_base[d] + (cell_widths[d]*(v))]
             final_vals[d] = final_vals[d] + [vs[d][v]]
 
     return final_vs, final_vals
@@ -819,37 +820,66 @@ for iteration in range(1000):
 
     #if CPUMIIND:
 
+    epsilon = 0.0000001
+
     for a in cell_dict[(current_dict+1)%2].keys():
-        if a in cell_dict[current_dict].keys() and cell_dict[current_dict][a][0] < 0.000001:
-            if cell_dict[current_dict][a][0] < cell_dict[(current_dict+1)%2][a][0]:
-                del cell_dict[current_dict][a]
         cell_dict[(current_dict+1)%2][a][0] = 0.0
     
     for coord in cell_dict[current_dict]:
+        cell_dict[current_dict][coord][0] /= remove_sum
         for ts in cell_dict[current_dict][coord][1]:
-            updateCell(False, cell_dict[(current_dict+1)%2], cell_dict[current_dict], ts, coord, cell_dict[current_dict][coord][0], cond)
+            updateCell(False, cell_dict[(current_dict+1)%2], ts, coord, cell_dict[current_dict][coord][0], cond)
+
+    remove = []
+    remove_sum = 1.0
+    for a in cell_dict[(current_dict+1)%2].keys():
+        if cell_dict[(current_dict+1)%2][a][0] < epsilon:
+            remove = remove + [a]
+            remove_sum -= cell_dict[(current_dict+1)%2][a][0]
+
+    for a in remove:
+        cell_dict[(current_dict+1)%2].pop(a, None)
+
     current_dict = (current_dict+1)%2
 
     for a in cell_dict[(current_dict+1)%2].keys():
-        if a in cell_dict[current_dict].keys() and cell_dict[current_dict][a][0] < 0.000001:
-            if cell_dict[current_dict][a][0] < cell_dict[(current_dict+1)%2][a][0]:
-                del cell_dict[current_dict][a]
         cell_dict[(current_dict+1)%2][a][0] = 0.0
     
     for coord in cell_dict[current_dict]:
+        cell_dict[current_dict][coord][0] /= remove_sum
         for ts in w_kernel_transitions[(0,0,0)][1]:
-            updateCell(True, cell_dict[(current_dict+1)%2], w_kernel_transitions, ts, coord, cell_dict[current_dict][coord][0], cond)
+            updateCell(True, cell_dict[(current_dict+1)%2], ts, coord, cell_dict[current_dict][coord][0], cond)
+
+    remove = []
+    remove_sum = 1.0
+    for a in cell_dict[(current_dict+1)%2].keys():
+        if cell_dict[(current_dict+1)%2][a][0] < epsilon:
+            remove = remove + [a]
+            remove_sum -= cell_dict[(current_dict+1)%2][a][0]
+
+    for a in remove:
+        cell_dict[(current_dict+1)%2].pop(a, None)
+
     current_dict = (current_dict+1)%2
 
     for a in cell_dict[(current_dict+1)%2].keys():
-        if a in cell_dict[current_dict].keys() and cell_dict[current_dict][a][0] < 0.000001:
-            if cell_dict[current_dict][a][0] < cell_dict[(current_dict+1)%2][a][0]:
-                del cell_dict[current_dict][a]
         cell_dict[(current_dict+1)%2][a][0] = 0.0
     
     for coord in cell_dict[current_dict]:
+        cell_dict[current_dict][coord][0] /= remove_sum
         for ts in u_kernel_transitions[(0,0,0)][1]:
-            updateCell(True, cell_dict[(current_dict+1)%2], u_kernel_transitions, ts, coord, cell_dict[current_dict][coord][0], cond)
+            updateCell(True, cell_dict[(current_dict+1)%2], ts, coord, cell_dict[current_dict][coord][0], cond)
+
+    remove = []
+    remove_sum = 1.0
+    for a in cell_dict[(current_dict+1)%2].keys():
+        if cell_dict[(current_dict+1)%2][a][0] < epsilon:
+            remove = remove + [a]
+            remove_sum -= cell_dict[(current_dict+1)%2][a][0]
+
+    for a in remove:
+        cell_dict[(current_dict+1)%2].pop(a, None)
+
     current_dict = (current_dict+1)%2
     
     print(len(cell_dict[current_dict].keys()))
@@ -908,7 +938,7 @@ for iteration in range(1000):
     # The monte carlo hist function gives density not mass (booo)
     # so let's just convert to density here
     
-    if (iteration % 10 == 0) :
+    if (iteration % 50 == 0) :
         dist_v = cj.readDist(v0)
         dist_w = cj.readDist(w0)
         dist_u = cj.readDist(u0)
