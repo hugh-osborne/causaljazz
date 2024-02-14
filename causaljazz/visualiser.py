@@ -136,7 +136,6 @@ class Visualiser:
 
         widths = (max_size[0]/max_res[0], max_size[1]/max_res[1])
         pos = (origin_location[0] - (max_size[0]/2.0) + ((cell_coords[0]+0.5)*widths[0]), origin_location[1] - (max_size[1]/2.0) + ((cell_coords[1]+0.5)*widths[1]))
-        
         self.square(pos, scale=widths, col=(cell_mass,0,0))
 
     def drawCell1D(self, cell_coords, cell_mass, origin_location=(0.0), max_size=(2.0), max_res=(100)):

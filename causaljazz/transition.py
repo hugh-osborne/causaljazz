@@ -31,7 +31,7 @@ class transition_cpu:
             
         if len(centroids) > 0:
             shifted_centroids = self.func(centroids)
-
+            
         centroid_count = 0
         for coord in self.pmf.cell_buffers[self.pmf.current_buffer]:
             self.transition_buffer[coord] = self.calcTransitions(centroids[centroid_count], shifted_centroids[centroid_count], coord)

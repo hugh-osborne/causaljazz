@@ -86,8 +86,8 @@ class pmf_cpu:
                 self.cell_buffers[0][cs] = mass_per_point
                 self.cell_buffers[1][cs] = mass_per_point
             else:
-                self.cell_buffers[0][cs][0] += mass_per_point
-                self.cell_buffers[1][cs][0] += mass_per_point
+                self.cell_buffers[0][cs] += mass_per_point
+                self.cell_buffers[1][cs] += mass_per_point
 
     def calcCellCentroid(self, coords):
         centroid = [0 for a in range(self.dims)]
@@ -140,13 +140,13 @@ class pmf_cpu:
     def draw(self, grid_res_override=None):
         if not self.visualiser.beginRendering():
             return
-        max_coords = tuple([1 for a in self.vis_dimensions])
-        min_coords = tuple([1 for a in self.vis_dimensions])
-        self.max_mass = 0.0
-
+        
         mcoords, mcentroids, mvals = self.calcMarginal(self.vis_dimensions)
+        self.max_mass = mvals[0]
+        max_coords = mcoords[0]
+        min_coords = mcoords[0]
         for a in range(len(mvals)):
-            mcoords[a] = [mcoords[a][i] + self.vis_coord_offset[self.vis_dimensions[i]] for i in range(len(self.vis_dimensions))]
+            #mcoords[a] = [mcoords[a][i] + self.vis_coord_offset[self.vis_dimensions[i]] for i in range(len(self.vis_dimensions))]
             max_coords = tuple([max(max_coords[i],mcoords[a][i]) for i in range(len(self.vis_dimensions))])
             min_coords = tuple([min(min_coords[i],mcoords[a][i]) for i in range(len(self.vis_dimensions))])
             self.max_mass = max(self.max_mass, mvals[a])
@@ -156,9 +156,8 @@ class pmf_cpu:
             self.coord_extent = grid_res_override
 
         for a in range(len(mvals)):
-            if mvals[a] < 0.000001:
-                continue
-            self.visualiser.drawCell(mcoords[a], mvals[a] / self.max_mass, origin_location=tuple([0.0 for d in range(len(self.vis_dimensions))]), max_size=tuple([2.0 for d in range(len(self.vis_dimensions))]), max_res=self.coord_extent)
+            print(mvals[a], self.max_mass)
+            self.visualiser.drawCell([mcoords[a][i]-min_coords[i] for i in range(len(self.vis_dimensions))], mvals[a], origin_location=tuple([0.0 for d in range(len(self.vis_dimensions))]), max_size=tuple([2.0 for d in range(len(self.vis_dimensions))]), max_res=self.coord_extent)
 
         self.visualiser.endRendering()
 
