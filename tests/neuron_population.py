@@ -14,8 +14,8 @@ from causaljazz.transition import transition_gpu
 from causaljazz.visualiser import Visualiser
 
 use_monte_carlo = False
-use_cpu_solver = True
-use_gpu_solver = False
+use_cpu_solver = False
+use_gpu_solver = True
 plot_output = False
 use_visualiser = True
 
@@ -199,10 +199,15 @@ if use_gpu_solver:
     if use_visualiser:
         gpu_vis = Visualiser(2)
         gpu_vis.setupVisuliser()
-    gpu_pmf = pmf_gpu(initial_dist, [v_min, w_min, u_min], [v_max-v_min, w_max-w_min, u_max-u_min], [v_res, w_res, u_res],gpu_vis, vis_dimensions=tuple([0,1]))
-    gpu_trans = transition_gpu(gpu_pmf, cond)
-    gpu_trans.addNoiseKernel(pymiind_wI, 1)
-    gpu_trans.addNoiseKernel(pymiind_uI, 2)
+    gpu_pmfs = [pmf_gpu(initial_dist, [v_min, w_min, u_min], [v_max-v_min, w_max-w_min, u_max-u_min], [v_res, w_res, u_res],gpu_vis, vis_dimensions=tuple([0,1])),
+                pmf_gpu(initial_dist, [v_min, w_min, u_min], [v_max-v_min, w_max-w_min, u_max-u_min], [v_res, w_res, u_res],gpu_vis, vis_dimensions=tuple([0,1]))]
+    gpu_trans = [transition_gpu(gpu_pmfs[0], cond, gpu_pmfs[1]),
+                 transition_gpu(gpu_pmfs[1], cond, gpu_pmfs[0])]
+    gpu_trans[0].addNoiseKernel(pymiind_wI, 1)
+    gpu_trans[0].addNoiseKernel(pymiind_uI, 2)
+    gpu_trans[1].addNoiseKernel(pymiind_wI, 1)
+    gpu_trans[1].addNoiseKernel(pymiind_uI, 2)
+    current_pmf_gpu = 0
     print("GPU Setup time:", time.perf_counter() - perf_time)
     
 perf_time = time.perf_counter()
@@ -212,19 +217,23 @@ for iteration in range(101):
     if use_cpu_solver:
         trans[current_pmf].applyFunction()
         current_pmf = (current_pmf + 1) % 2
-        trans[current_pmf].applyNoiseKernels(0)
+        trans[current_pmf].applyNoiseKernel(0)
         current_pmf = (current_pmf + 1) % 2
-        trans[current_pmf].applyNoiseKernels(1)
+        trans[current_pmf].applyNoiseKernel(1)
         current_pmf = (current_pmf + 1) % 2
         if use_visualiser:
             pmfs[current_pmf].draw((200,200))
 
     # GPU Solver
     if use_gpu_solver:
-        gpu_trans.applyFunction()
-        gpu_trans.applyNoiseKernels()
+        gpu_trans[current_pmf_gpu].applyFunction()
+        current_pmf_gpu = (current_pmf_gpu + 1) % 2
+        gpu_trans[current_pmf_gpu].applyNoiseKernel(0)
+        current_pmf_gpu = (current_pmf_gpu + 1) % 2
+        gpu_trans[current_pmf_gpu].applyNoiseKernel(1)
+        current_pmf_gpu = (current_pmf_gpu + 1) % 2
         if use_visualiser:
-            gpu_pmf.draw()
+            gpu_pmfs[current_pmf_gpu].draw()
 
     # Also run the monte carlo simulation 
 

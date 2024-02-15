@@ -47,6 +47,7 @@ class transition_cpu:
             if kernel[c] > 0.0:
                 kernel_transitions[cs] = kernel_transitions[cs] + [(kernel[c], [c-int(len(kernel)/2) if d == dimension else 0 for d in range(self.pmf.dims)])]
         self.noise_kernels = self.noise_kernels + [[1.0,kernel_transitions[cs]]]
+        return len(self.noise_kernels) - 1
 
     # Calculate the transitions for each cell based on the given centroid and centroid after one application of self.func (stepped_centroid)
     # The centroid calculation is not done here because sometimes it's better to batch function application (for example with an ANN)
@@ -150,7 +151,7 @@ class transition_cpu:
         for coord in self.pmf_out.cell_buffer:
             self.pmf_out.cell_buffer[coord] /= mass_summed
 
-    def applyNoiseKernels(self, kernel_id):
+    def applyNoiseKernel(self, kernel_id):
         self.checkTransitionsMatchBuffer()
         
         kernel = self.noise_kernels[kernel_id]
@@ -206,12 +207,13 @@ class transition_cpu:
             
 
 class transition_gpu:
-    def __init__(self, pmf, _func):
+    def __init__(self, pmf, _func, pmf_out):
         self.pmf = pmf
+        self.pmf_out = pmf_out
         self.noise_kernels = []
         self.func = _func
 
-        self.csr = self.generateConditionalTransitionCSR(self.pmf.grids[0], _func, self.pmf.grids[1])
+        self.csr = self.generateConditionalTransitionCSR(self.pmf.grid, _func, self.pmf_out.grid)
 
     def generateConditionalTransitionCSR(self, grid_in, func, grid_out):
         lil_mat = lil_matrix((grid_in.total_cells,grid_out.total_cells))
@@ -237,29 +239,28 @@ class transition_gpu:
         return len(self.noise_kernels)-1
 
     def applyFunction(self):
-        self.pmf.grids[(self.pmf.current_grid+1)%2].updateData(self.csr.dot(self.pmf.grids[self.pmf.current_grid].data))
-        self.pmf.current_grid = (self.pmf.current_grid+1)%2
+        self.pmf_out.grid.updateData(self.csr.dot(self.pmf.grid.data))
 
-    def applyNoiseKernels(self):
-        for kernel in self.noise_kernels:
-            dim_order = [i for i in range(self.pmf.grids[self.pmf.current_grid].numDimensions()) if i != kernel[0]]
-            dim_order = dim_order + [kernel[0]]
-            inv_order = [a for a in range(self.pmf.grids[self.pmf.current_grid].numDimensions())]
-            d_rep = 0
-            for d in range(self.pmf.grids[self.pmf.current_grid].numDimensions()):
-                if d == kernel[0]:
-                    inv_order[d] = self.pmf.grids[self.pmf.current_grid].numDimensions()-1
-                else:
-                    inv_order[d] = d_rep
-                    d_rep += 1
+    def applyNoiseKernel(self, kernel_id):
+        kernel = self.noise_kernels[kernel_id]
+        
+        dim_order = [i for i in range(self.pmf.grid.numDimensions()) if i != kernel[0]]
+        dim_order = dim_order + [kernel[0]]
+        inv_order = [a for a in range(self.pmf.grid.numDimensions())]
+        d_rep = 0
+        for d in range(self.pmf.grid.numDimensions()):
+            if d == kernel[0]:
+                inv_order[d] = self.pmf.grid.numDimensions()-1
+            else:
+                inv_order[d] = d_rep
+                d_rep += 1
 
-            # Transpose the grid to make the contiguous dimension the same as the desired kernel dimension.
-            transposed_grid = self.pmf.grids[self.pmf.current_grid].getTransposed(dim_order)
-            transposed_res = [self.pmf.grids[self.pmf.current_grid].res[d] for d in dim_order]
-            # Apply the convolution.
-            transposed_grid = cp.convolve(transposed_grid, kernel[1], mode='same')
-            # Transpose back to the original dimension order.
-            transposed_grid = cp.ravel(cp.transpose(cp.reshape(transposed_grid, transposed_res , order='C'), inv_order), order='C')
-            # Update the next grid.
-            self.pmf.grids[(self.pmf.current_grid+1)%2].updateData(transposed_grid)
-            self.pmf.current_grid = (self.pmf.current_grid+1)%2
+        # Transpose the grid to make the contiguous dimension the same as the desired kernel dimension.
+        transposed_grid = self.pmf.grid.getTransposed(dim_order)
+        transposed_res = [self.pmf.grid.res[d] for d in dim_order]
+        # Apply the convolution.
+        transposed_grid = cp.convolve(transposed_grid, kernel[1], mode='same')
+        # Transpose back to the original dimension order.
+        transposed_grid = cp.ravel(cp.transpose(cp.reshape(transposed_grid, transposed_res , order='C'), inv_order), order='C')
+        # Update the next grid.
+        self.pmf_out.grid.updateData(transposed_grid)

@@ -182,8 +182,7 @@ class pmf_gpu:
         self.visualiser = _vis
         self.vis_dimensions = vis_dimensions
         
-        self.grids = [NdGrid(_base, _size, _res, initial_distribution),NdGrid(_base, _size, _res, initial_distribution)]
-        self.current_grid = 0
+        self.grid = NdGrid(_base, _size, _res, initial_distribution)
         
         self.vis_coords = None
         self.vis_centroids = None
@@ -192,17 +191,17 @@ class pmf_gpu:
     def calcMarginals(self):
         final_vals = []
         final_vs = []
-        for d in range(self.grids[self.current_grid].numDimensions()):
-            other_dims = tuple([i for i in range(self.grids[self.current_grid].numDimensions()) if i != d])
-            final_vals = final_vals + [np.sum(self.grids[self.current_grid].readData(), other_dims)]
-            final_vs = final_vs + [np.linspace(self.grids[self.current_grid].base[d],self.grids[self.current_grid].base[d] + self.grids[self.current_grid].size[d],self.grids[self.current_grid].res[d])]
+        for d in range(self.grid.numDimensions()):
+            other_dims = tuple([i for i in range(self.grid.numDimensions()) if i != d])
+            final_vals = final_vals + [np.sum(self.grid.readData(), other_dims)]
+            final_vs = final_vs + [np.linspace(self.grid.base[d],self.grid.base[d] + self.grid.size[d],self.grid.res[d])]
 
         return final_vs, final_vals
 
     def calcMarginal(self, dimensions):
-        reduced_grid = NdGrid([self.grids[self.current_grid].base[d] for d in dimensions], [self.grids[self.current_grid].size[d] for d in dimensions], [self.grids[self.current_grid].res[d] for d in dimensions])
-        other_dims = tuple([i for i in range(self.grids[self.current_grid].numDimensions()) if i not in dimensions])
-        final_vals = np.ravel(np.sum(self.grids[self.current_grid].readData(), other_dims))
+        reduced_grid = NdGrid([self.grid.base[d] for d in dimensions], [self.grid.size[d] for d in dimensions], [self.grid.res[d] for d in dimensions])
+        other_dims = tuple([i for i in range(self.grid.numDimensions()) if i not in dimensions])
+        final_vals = np.ravel(np.sum(self.grid.readData(), other_dims))
         final_coords = [reduced_grid.getCellCoords(c) for c in range(reduced_grid.total_cells)]
         final_centroids = [reduced_grid.getCellCentroid(c) for c in range(reduced_grid.total_cells)]
         return final_coords, final_centroids, final_vals
@@ -210,12 +209,12 @@ class pmf_gpu:
     # Calculating the coords and centroids in calcMarginal is slow and, for the visualiser, these values stay constant (only the mass values change)
     def calcMarginalForVis(self):
         if self.vis_coords is None and self.vis_centroids is None:
-            reduced_grid = NdGrid([self.grids[self.current_grid].base[d] for d in self.vis_dimensions], [self.grids[self.current_grid].size[d] for d in self.vis_dimensions], [self.grids[self.current_grid].res[d] for d in self.vis_dimensions])
+            reduced_grid = NdGrid([self.grid.base[d] for d in self.vis_dimensions], [self.grid.size[d] for d in self.vis_dimensions], [self.grid.res[d] for d in self.vis_dimensions])
             self.vis_coords = [reduced_grid.getCellCoords(c) for c in range(reduced_grid.total_cells)]
             self.vis_centroids = [reduced_grid.getCellCentroid(c) for c in range(reduced_grid.total_cells)]
             
-        other_dims = tuple([i for i in range(self.grids[self.current_grid].numDimensions()) if i not in self.vis_dimensions])
-        final_vals = np.ravel(np.sum(self.grids[self.current_grid].readData(), other_dims))
+        other_dims = tuple([i for i in range(self.grid.numDimensions()) if i not in self.vis_dimensions])
+        final_vals = np.ravel(np.sum(self.grid.readData(), other_dims))
         
         return self.vis_coords, self.vis_centroids, final_vals
 
@@ -230,6 +229,6 @@ class pmf_gpu:
             self.max_mass = max(self.max_mass, m)
         
         for a in range(len(mvals)):
-            self.visualiser.drawCell(mcoords[a], mvals[a] / self.max_mass, origin_location=tuple([0.0 for d in range(len(self.vis_dimensions))]), max_size=tuple([2.0 for d in range(len(self.vis_dimensions))]), max_res=[self.grids[0].res[d] for d in self.vis_dimensions])
+            self.visualiser.drawCell(mcoords[a], mvals[a] / self.max_mass, origin_location=tuple([0.0 for d in range(len(self.vis_dimensions))]), max_size=tuple([2.0 for d in range(len(self.vis_dimensions))]), max_res=[self.grid.res[d] for d in self.vis_dimensions])
         
         self.visualiser.endRendering()
