@@ -24,12 +24,10 @@ class pmf_cpu:
         # that will receive that proportion after a single time step
         #
         # cell_buffers
-        self.cell_buffers = [{},{}]
+        self.cell_buffer = {}
 
         # The base coord within the discretised state space (explained below)
         self.cell_base = np.zeros(self.dims)
-        # Set the current buffer to 0 (will swap from 0 to 1 or back each iteration)
-        self.current_buffer = 0
         # Due to numerical error, the total mass will be slightly more or less than 1.0 each iteration
         # To overcome this, we need to rescale all cell masses. The numerical error remains of course, 
         # but it can't exponentially increase or decrease and is held in check
@@ -60,21 +58,40 @@ class pmf_cpu:
                     self.vis_coord_offset = cell_base_coords
                     self.cell_base = _base + (np.multiply(idx,_cell_widths))
                     first_cell = False
-                self.cell_buffers[0][tuple((np.asarray(idx)-cell_base_coords).tolist())] = val
-                self.cell_buffers[1][tuple((np.asarray(idx)-cell_base_coords).tolist())] = val
+                self.cell_buffer[tuple((np.asarray(idx)-cell_base_coords).tolist())] = val
             
+    def findCellCoordsOfPointDim(self, point, dim):
+        if point[dim] >= self.cell_base[dim]:
+            return int((point[dim] - self.cell_base[dim]) / self.cell_widths[dim])
+        else:
+            return int((point[dim] - self.cell_base[dim]) / self.cell_widths[dim]) - 1
+        
+    
+    def getPointModuloDim(self, point, dim):
+        if point[dim] >= self.cell_base[dim]:
+            p = (point[dim] - self.cell_base[dim]) / self.cell_widths[dim]
+            return (p - int(p))
+        else:
+            p = abs(point[dim] - self.cell_base[dim]) / self.cell_widths[dim]
+            return 1.0 - (p - int(p))
+    
     def findCellCoordsOfPoint(self, point):
         coords = np.zeros(self.dims)
         for c in range(self.dims):
-            coords[c] = int((point[c] - self.base[c]) / self.cell_widths[c])
+            coords[c] = self.findCellCoordsOfPointDim(point, c)
           
         return coords
     
+    def getPointModulo(self, point):
+        modulo = np.zeros(self.dims)
+        for c in range(self.dims):
+            modulo[c] = self.getPointModuloDim(point, c)
+          
+        return modulo
+    
     def generateInitialDistribtionFromSample(self, points):
         # assert dimension of points matches that of the grid
-        
-        mass_per_point = 1.0 / points.shape[-1]
-        
+        mass_per_point = 1.0 / points.shape[0]
         # First cell is the location of the first point.
         cell_base_coords = self.findCellCoordsOfPoint(points[0])
         self.vis_coord_offset = cell_base_coords
@@ -82,12 +99,10 @@ class pmf_cpu:
         
         for p in points:
             cs = tuple((np.asarray(self.findCellCoordsOfPoint(p))-cell_base_coords).tolist())
-            if cs not in self.cell_buffers[0].keys():
-                self.cell_buffers[0][cs] = mass_per_point
-                self.cell_buffers[1][cs] = mass_per_point
+            if cs not in self.cell_buffer.keys():
+                self.cell_buffer[cs] = mass_per_point
             else:
-                self.cell_buffers[0][cs] += mass_per_point
-                self.cell_buffers[1][cs] += mass_per_point
+                self.cell_buffer[cs] += mass_per_point
 
     def calcCellCentroid(self, coords):
         centroid = [0 for a in range(self.dims)]
@@ -99,12 +114,12 @@ class pmf_cpu:
 
     def calcMarginals(self):
         vs = [{} for d in range(self.dims)]
-        for c in self.cell_buffers[self.current_buffer]:
+        for c in self.cell_buffer:
             for d in range(self.dims):
                 if c[d] not in vs[d]:
-                    vs[d][c[d]] = self.cell_buffers[self.current_buffer][c][0]
+                    vs[d][c[d]] = self.cell_buffer[c][0]
                 else:
-                    vs[d][c[d]] += self.cell_buffers[self.current_buffer][c][0]
+                    vs[d][c[d]] += self.cell_buffer[c][0]
 
         final_vs = [[] for d in range(self.dims)]
         final_vals = [[] for d in range(self.dims)]
@@ -118,7 +133,7 @@ class pmf_cpu:
 
     def calcMarginal(self, dimensions):
         vals = {}
-        for cell_key, cell_val in self.cell_buffers[self.current_buffer].items():
+        for cell_key, cell_val in self.cell_buffer.items():
             reduced_key = tuple([cell_key[a] for a in range(self.dims) if a in dimensions])
             if reduced_key not in vals:
                 vals[reduced_key] = cell_val
@@ -156,8 +171,7 @@ class pmf_cpu:
             self.coord_extent = grid_res_override
 
         for a in range(len(mvals)):
-            print(mvals[a], self.max_mass)
-            self.visualiser.drawCell([mcoords[a][i]-min_coords[i] for i in range(len(self.vis_dimensions))], mvals[a], origin_location=tuple([0.0 for d in range(len(self.vis_dimensions))]), max_size=tuple([2.0 for d in range(len(self.vis_dimensions))]), max_res=self.coord_extent)
+            self.visualiser.drawCell([mcoords[a][i]-min_coords[i] for i in range(len(self.vis_dimensions))], mvals[a]/self.max_mass, origin_location=tuple([0.0 for d in range(len(self.vis_dimensions))]), max_size=tuple([2.0 for d in range(len(self.vis_dimensions))]), max_res=self.coord_extent)
 
         self.visualiser.endRendering()
 
@@ -216,8 +230,6 @@ class pmf_gpu:
             self.max_mass = max(self.max_mass, m)
         
         for a in range(len(mvals)):
-            if mvals[a] < 0.000001:
-                continue
             self.visualiser.drawCell(mcoords[a], mvals[a] / self.max_mass, origin_location=tuple([0.0 for d in range(len(self.vis_dimensions))]), max_size=tuple([2.0 for d in range(len(self.vis_dimensions))]), max_res=[self.grids[0].res[d] for d in self.vis_dimensions])
         
         self.visualiser.endRendering()

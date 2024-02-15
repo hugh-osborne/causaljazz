@@ -179,10 +179,15 @@ if use_cpu_solver:
     if use_visualiser:
         cpu_vis = Visualiser(2)
         cpu_vis.setupVisuliser()
-    pmf = pmf_cpu(initial_dist, np.array([v_min,w_min,u_min]), cell_widths, 0.0000001, cpu_vis, vis_dimensions=tuple([0,1]))
-    trans = transition_cpu(pmf, cond)
-    trans.addNoiseKernel(pymiind_wI, 1)
-    trans.addNoiseKernel(pymiind_uI, 2)
+    pmfs = [pmf_cpu(initial_dist, np.array([v_min,w_min,u_min]), cell_widths, 0.0000001, cpu_vis, vis_dimensions=tuple([0,1])), 
+            pmf_cpu(initial_dist, np.array([v_min,w_min,u_min]), cell_widths, 0.0000001, cpu_vis, vis_dimensions=tuple([0,1]))]
+    trans = [transition_cpu(pmfs[0], cond, pmfs[1]),
+             transition_cpu(pmfs[1], cond, pmfs[0])]
+    current_pmf = 0
+    trans[0].addNoiseKernel(pymiind_wI, 1)
+    trans[0].addNoiseKernel(pymiind_uI, 2)
+    trans[1].addNoiseKernel(pymiind_wI, 1)
+    trans[1].addNoiseKernel(pymiind_uI, 2)
     print("CPU Setup time:", time.perf_counter() - perf_time)
 
 
@@ -205,10 +210,14 @@ for iteration in range(101):
 
     # CPU Solver
     if use_cpu_solver:
-        trans.applyFunction()
-        trans.applyNoiseKernels()
+        trans[current_pmf].applyFunction()
+        current_pmf = (current_pmf + 1) % 2
+        trans[current_pmf].applyNoiseKernels(0)
+        current_pmf = (current_pmf + 1) % 2
+        trans[current_pmf].applyNoiseKernels(1)
+        current_pmf = (current_pmf + 1) % 2
         if use_visualiser:
-            pmf.draw((200,200))
+            pmfs[current_pmf].draw((200,200))
 
     # GPU Solver
     if use_gpu_solver:

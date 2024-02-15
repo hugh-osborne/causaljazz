@@ -136,7 +136,21 @@ class Visualiser:
 
         widths = (max_size[0]/max_res[0], max_size[1]/max_res[1])
         pos = (origin_location[0] - (max_size[0]/2.0) + ((cell_coords[0]+0.5)*widths[0]), origin_location[1] - (max_size[1]/2.0) + ((cell_coords[1]+0.5)*widths[1]))
-        self.square(pos, scale=widths, col=(cell_mass,0,0))
+
+        inferno_values = [(1.0 / 8.0) * i for i in range(8)]        
+        inferno_r_range = [0.0, 40/255, 101/255, 159/25, 212/255, 245/255, 250/255, 252/255]
+        inferno_g_range = [0.0, 11/255, 21/255, 42/255, 72/255, 125/255, 193/255, 255/255]
+        inferno_b_range = [4/255, 84/255, 110/255, 99/255, 66/255, 21/255, 39/255, 164/255]
+
+        lower_num = int(cell_mass * 8.0)
+        if lower_num > 6:
+            lower_num = 6
+            
+        green = inferno_g_range[lower_num] + (((cell_mass - inferno_values[lower_num]) / (inferno_values[lower_num+1] - inferno_values[lower_num])) * (inferno_g_range[lower_num+1] - inferno_g_range[lower_num]))
+        red = inferno_r_range[lower_num] + (((cell_mass - inferno_values[lower_num]) / (inferno_values[lower_num + 1] - inferno_values[lower_num])) * (inferno_r_range[lower_num + 1] - inferno_r_range[lower_num]))
+        blue = inferno_b_range[lower_num] + (((cell_mass - inferno_values[lower_num]) / (inferno_values[lower_num + 1] - inferno_values[lower_num])) * (inferno_b_range[lower_num + 1] - inferno_b_range[lower_num]))
+        
+        self.square(pos, scale=widths, col=(red,green,blue))
 
     def drawCell1D(self, cell_coords, cell_mass, origin_location=(0.0), max_size=(2.0), max_res=(100)):
         if self.closed:
