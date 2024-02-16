@@ -78,22 +78,35 @@ class NdGrid:
             centroid[d] = self.base[d] + ((coords[d]+0.5)*self.cell_widths[d])
 
         return centroid
-
-    def calcTransitions(self, centroid, stepped_centroid, coord, d=0, target_coord=[], mass=1.0):
-        if len(target_coord) == len(coord):
+    
+    def findCellCoordsOfPointDim(self, point, dim):
+        if point[dim] >= self.base[dim]:
+            return int((point[dim] - self.base[dim]) / self.cell_widths[dim])
+        else:
+            return int((point[dim] - self.base[dim]) / self.cell_widths[dim]) - 1
+        
+    def getPointModuloDim(self, point, dim):
+        if point[dim] >= self.base[dim]:
+            p = (point[dim] - self.base[dim]) / self.cell_widths[dim]
+            return (p - int(p))
+        else:
+            p = abs(point[dim] - self.base[dim]) / self.cell_widths[dim]
+            return 1.0 - (p - int(p))
+        
+    def calcTransitions(self, stepped_centroid, d=0, target_coord=[], mass=1.0):
+        if len(target_coord) == len(stepped_centroid):
             return [(mass, target_coord)]
 
-        diff = stepped_centroid[d] - centroid[d]
+        t_cell_location = self.getPointModuloDim(stepped_centroid, d)
+        t_cell_lo = self.findCellCoordsOfPointDim(stepped_centroid, d)
         
-        cell_lo = coord[d] + int(abs(diff) / self.cell_widths[d])
-        cell_hi = cell_lo + 1
-        prop_lo = 0.0
-        if diff < 0.0: # actually, diff is negative so cell_lo is the upper cell
-            cell_lo = coord[d] - int(abs(diff) / self.cell_widths[d])
-            cell_hi = cell_lo - 1
+        if t_cell_location < 0.5: # cell spreads to cell below
+            t_cell_hi = t_cell_lo-1
+            t_prop_lo = t_cell_location + 0.5
+            t_prop_hi = 1-t_prop_lo
+        else:
+            t_cell_hi = t_cell_lo+1
+            t_prop_hi = t_cell_location - 0.5
+            t_prop_lo = 1 - t_prop_hi
 
-
-        prop_lo = 1.0 - ((abs(diff) % self.cell_widths[d]) / self.cell_widths[d])
-        prop_hi = 1.0 - prop_lo
-    
-        return self.calcTransitions(centroid, stepped_centroid, coord, d+1, target_coord + [cell_lo], mass*prop_lo) + self.calcTransitions(centroid, stepped_centroid, coord, d+1, target_coord + [cell_hi], mass*prop_hi)
+        return self.calcTransitions(stepped_centroid, d+1, target_coord + [t_cell_lo], mass*t_prop_lo) + self.calcTransitions(stepped_centroid, d+1, target_coord + [t_cell_hi], mass*t_prop_hi)

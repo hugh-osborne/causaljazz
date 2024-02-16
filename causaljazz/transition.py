@@ -35,7 +35,7 @@ class transition_cpu:
             
         centroid_count = 0
         for coord in self.pmf.cell_buffer:
-            self.transition_buffer[coord] = self.calcTransitions(shifted_centroids[centroid_count], coord)
+            self.transition_buffer[coord] = self.calcTransitions(shifted_centroids[centroid_count])
             centroid_count += 1
 
     # Add a noise kernel
@@ -51,8 +51,8 @@ class transition_cpu:
 
     # Calculate the transitions for each cell based on the given centroid and centroid after one application of self.func (stepped_centroid)
     # The centroid calculation is not done here because sometimes it's better to batch function application (for example with an ANN)
-    def calcTransitions(self, stepped_centroid, coord, d=0, target_coord=[], mass=1.0):
-        if len(target_coord) == len(coord):
+    def calcTransitions(self, stepped_centroid, d=0, target_coord=[], mass=1.0):
+        if len(target_coord) == len(stepped_centroid):
             return [(mass, target_coord)]
         
         t_cell_location = self.pmf_out.getPointModuloDim(stepped_centroid, d)
@@ -67,25 +67,13 @@ class transition_cpu:
             t_prop_hi = t_cell_location - 0.5
             t_prop_lo = 1 - t_prop_hi
             
-        return self.calcTransitions(stepped_centroid, coord, d+1, target_coord + [t_cell_lo], mass*t_prop_lo) + self.calcTransitions(stepped_centroid, coord, d+1, target_coord + [t_cell_hi], mass*t_prop_hi)
-
-    # Calculate the centroid of a cell if it doesn't already exist in new_cell_dict (the next cell buffer)
-    def calculateCellCentroidForUpdate(self, new_cell_dict, transition):
-        t = [a for a in transition[1]]
-
-        if tuple(t) not in new_cell_dict.keys():
-            centroid = [0 for a in range(len(t))]
-
-            for d in range(len(t)):
-                centroid[d] = self.pmf_out.cell_base[d] + ((t[d]+0.5)*self.pmf_out.cell_widths[d])
-                
-            return centroid
-        
-        return None
+        return self.calcTransitions(stepped_centroid, d+1, target_coord + [t_cell_lo], mass*t_prop_lo) + self.calcTransitions(stepped_centroid, d+1, target_coord + [t_cell_hi], mass*t_prop_hi)
 
     # Update the mass of a cell
     def updateCell(self, new_cell_dict, transition, mass):
         t = [a for a in transition[1]]
+        if tuple(t) not in new_cell_dict:
+            new_cell_dict[tuple(t)] = 0.0    
         new_cell_dict[tuple(t)] += mass*transition[0]
         
     def checkTransitionsMatchBuffer(self):
@@ -103,38 +91,33 @@ class transition_cpu:
             shifted_centroids = self.func(centroids)
             
         for c in range(len(new_coords)):
-            self.transition_buffer[tuple(new_coords[c])] = self.calcTransitions(shifted_centroids[c], new_coords[c])
+            self.transition_buffer[tuple(new_coords[c])] = self.calcTransitions(shifted_centroids[c])
+            
+        remove = []
+        for key in self.transition_buffer.keys():
+            if key not in self.pmf.cell_buffer.keys():
+                remove = remove + [key]
+        
+        for a in remove:        
+            self.transition_buffer.pop(a, None)
+            
+        return new_coords
         
     def applyFunction(self):
-        self.checkTransitionsMatchBuffer()
+        new_coords = self.checkTransitionsMatchBuffer()
         
         # Set the next buffer mass values to 0
         for a in self.pmf_out.cell_buffer.keys():
             self.pmf_out.cell_buffer[a] = 0.0
             
-        # Calculate the centroids of all *new* cells which are to be added to the next buffer
-        new_coords = []
-        centroids = []        
-        for coord in self.pmf.cell_buffer.keys():
-            for ts in self.transition_buffer[coord]:
-                centroid = self.calculateCellCentroidForUpdate(self.pmf_out.cell_buffer, ts)
-                if centroid is not None:
-                    new_coords = new_coords + [ts[1]]
-                    centroids = centroids + [centroid]
-                
-        # Batch apply the function to the new centroids
-        if len(centroids) > 0:
-            shifted_centroids = self.func(centroids)
-        
-        # Build the transitions for each new cell
+        # If there were further changes to pmf_in (new_coords is not empty), add those to pmf_out as well.
         for c in range(len(new_coords)):
             self.pmf_out.cell_buffer[tuple(new_coords[c])] = 0.0
-            self.transition_buffer[tuple(new_coords[c])] = self.calcTransitions(shifted_centroids[c], new_coords[c])
-    
-        # Fill the next buffer with the updated mass values
-        for coord in self.pmf.cell_buffer:
-            for ts in self.transition_buffer[coord]:
-                self.updateCell(self.pmf_out.cell_buffer, ts, self.pmf.cell_buffer[coord])
+        
+        # Fill the pmf_out cell buffer with the updated mass values
+        for t_key, t_val in self.transition_buffer.items():
+            for ts in t_val:
+                self.updateCell(self.pmf_out.cell_buffer, ts, self.pmf.cell_buffer[t_key])
 
         # Remove any cells with a small amount of mass and keep a total to spread back to the remaining population
         remove = []
@@ -152,43 +135,27 @@ class transition_cpu:
             self.pmf_out.cell_buffer[coord] /= mass_summed
 
     def applyNoiseKernel(self, kernel_id):
-        self.checkTransitionsMatchBuffer()
+        new_coords = self.checkTransitionsMatchBuffer()
         
         kernel = self.noise_kernels[kernel_id]
         
         # Set the next buffer mass values to 0
         for a in self.pmf_out.cell_buffer.keys():
             self.pmf_out.cell_buffer[a] = 0.0
-                
-        # Calculate the centroids of all *new* cells which are to be added to the next buffer
-        new_coords = []
-        centroids = []   
-        for coord in self.pmf.cell_buffer.keys():
-            for ts in kernel[1]:
-                relative_ts_coord = [a for a in ts[1]]
-                for d in range(len(relative_ts_coord)):
-                    relative_ts_coord[d] = coord[d] + relative_ts_coord[d]
-                relative_ts = [ts[0],relative_ts_coord]
-                centroid = self.calculateCellCentroidForUpdate(self.pmf_out.cell_buffer, relative_ts)
-                if centroid is not None:
-                    new_coords = new_coords + [relative_ts_coord]
-                    centroids = centroids + [centroid]
-                
-        # Batch apply the function to the new centroids
-        if len(centroids) > 0:
-            shifted_centroids = self.func(centroids)
-        
-        # Build the transitions for each new cell
+            
+        # If there were further changes to pmf_in (new_coords is not empty), add those to pmf_out as well.
         for c in range(len(new_coords)):
             self.pmf_out.cell_buffer[tuple(new_coords[c])] = 0.0
-            self.transition_buffer[tuple(new_coords[c])] = self.calcTransitions(shifted_centroids[c], new_coords[c])
-    
+
+        # Apply the kernel
         for coord in self.pmf.cell_buffer:
             for ts in kernel[1]:
                 relative_ts_coord = [a for a in ts[1]]
                 for d in range(len(relative_ts_coord)):
                     relative_ts_coord[d] = coord[d] + relative_ts_coord[d]
                 relative_ts = [ts[0],relative_ts_coord]
+                if tuple(relative_ts_coord) not in self.pmf_out.cell_buffer.keys():
+                    self.pmf_out.cell_buffer[tuple(new_coords[c])] = 0.0
                 self.updateCell(self.pmf_out.cell_buffer, relative_ts, self.pmf.cell_buffer[coord])
 
         remove = []
@@ -221,7 +188,7 @@ class transition_gpu:
         trans_points = func(start_points)
         
         for r in range(grid_in.total_cells):
-            ts = grid_in.calcTransitions(start_points[r], trans_points[r], grid_in.getCellCoords(r))
+            ts = grid_out.calcTransitions(trans_points[r])
             for t in ts:
                 out_cell = grid_out.getCellNum(t[1])
                 if out_cell < 0:

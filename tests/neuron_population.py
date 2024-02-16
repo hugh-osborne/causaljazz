@@ -14,8 +14,8 @@ from causaljazz.transition import transition_gpu
 from causaljazz.visualiser import Visualiser
 
 use_monte_carlo = False
-use_cpu_solver = False
-use_gpu_solver = True
+use_cpu_solver = True
+use_gpu_solver = False
 plot_output = False
 use_visualiser = True
 
@@ -222,7 +222,7 @@ for iteration in range(101):
         trans[current_pmf].applyNoiseKernel(1)
         current_pmf = (current_pmf + 1) % 2
         if use_visualiser:
-            pmfs[current_pmf].draw((200,200))
+            pmfs[current_pmf].draw((100,100))
 
     # GPU Solver
     if use_gpu_solver:
