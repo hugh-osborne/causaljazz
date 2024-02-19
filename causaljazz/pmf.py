@@ -59,7 +59,48 @@ class pmf_cpu:
                     self.cell_base = _base + (np.multiply(idx,_cell_widths))
                     first_cell = False
                 self.cell_buffer[tuple((np.asarray(idx)-cell_base_coords).tolist())] = val
+    
+    # Todo : This badly needs a test!
+    @classmethod
+    def buildFromIndependentPmfs(cls, pmfs, _mass_epsilon=None, _vis=None, vis_dimensions=(0,1,2)):
+        base = np.concatenate([p.base for p in pmfs], axis=0)
+        cell_widths = np.concatenate([p.cell_widths for p in pmfs], axis=0)
+        if _mass_epsilon is None:
+            _mass_epsilon = np.min([p.mass_epsilon for p in pmfs])
+        
+        new_pmf = cls([], base, cell_widths, _mass_epsilon, _vis, vis_dimensions)
+        
+        new_pmf.vis_coord_offset = np.concatenate([p.vis_coord_offset for p in pmfs])
+        new_pmf.cell_base = np.concatenate([p.cell_base for p in pmfs])
+        
+        prev_build_cell_buffer = {}
+        for k,v in pmfs[0].cell_buffer.items():
+            prev_build_cell_buffer[k] = v
             
+        for pmf in pmfs[1:]:
+            build_cell_buffer = {}
+            for k,v in prev_build_cell_buffer.items():
+                for nk, nv in pmf.cell_buffer.items():
+                    build_cell_buffer[tuple(np.concatenate([k, nk]))] = v * nv
+            prev_build_cell_buffer = build_cell_buffer.copy()
+
+        new_pmf.cell_buffer = build_cell_buffer.copy()
+        
+        return new_pmf
+        
+    # def copyToGpu(self, pmf, new_base=None, new_size=None):
+    #     if new_base is None:
+    #         new_base = self.base
+            
+    #     # First make sure that the target pmf base matches this one - if not, force the target to change
+    #     if pmf.grid.base = new_base
+            
+    #     in_dist = np.zeros(pmf.grid.res)
+    #     for coord, mass in self.cell_buffer.items():
+    #         grid_coord = 
+
+    #     npmf = pmf.grid.updateData(in_dist)
+
     def findCellCoordsOfPointDim(self, point, dim):
         if point[dim] >= self.cell_base[dim]:
             return int((point[dim] - self.cell_base[dim]) / self.cell_widths[dim])

@@ -222,7 +222,7 @@ for iteration in range(101):
         trans[current_pmf].applyNoiseKernel(1)
         current_pmf = (current_pmf + 1) % 2
         if use_visualiser:
-            pmfs[current_pmf].draw((100,100))
+            pmfs[current_pmf].draw((50,50))
 
     # GPU Solver
     if use_gpu_solver:
