@@ -1,6 +1,7 @@
 import numpy as np
 from .visualiser import Visualiser
 from .grid import NdGrid
+import matplotlib.pyplot as plt
 
 class pmf_cpu:
     def __init__(self, initial_distribution, _base, _cell_widths, _mass_epsilon, _vis=None, vis_dimensions=(0,1,2)):
@@ -77,11 +78,18 @@ class pmf_cpu:
         for k,v in pmfs[0].cell_buffer.items():
             prev_build_cell_buffer[k] = v
             
+        dropped_mass = 0.0
+        remove_list = []
         for pmf in pmfs[1:]:
             build_cell_buffer = {}
             for k,v in prev_build_cell_buffer.items():
                 for nk, nv in pmf.cell_buffer.items():
                     build_cell_buffer[tuple(np.concatenate([k, nk]))] = v * nv
+                    if v*nv < _mass_epsilon:
+                        dropped_mass += v*nv
+                        remove_list = remove_list + [tuple(np.concatenate([k, nk]))]
+            for a in remove_list:
+                build_cell_buffer.pop(a, None)
             prev_build_cell_buffer = build_cell_buffer.copy()
 
         new_pmf.cell_buffer = build_cell_buffer.copy()
@@ -193,7 +201,7 @@ class pmf_cpu:
 
         return final_coords, final_centroids, final_vals
 
-    def draw(self, grid_res_override=None):
+    def draw(self, grid_min_override=None, grid_max_override=None, grid_res_override=None):
         if not self.visualiser.beginRendering():
             return
         
@@ -206,13 +214,22 @@ class pmf_cpu:
             max_coords = tuple([max(max_coords[i],mcoords[a][i]) for i in range(len(self.vis_dimensions))])
             min_coords = tuple([min(min_coords[i],mcoords[a][i]) for i in range(len(self.vis_dimensions))])
             self.max_mass = max(self.max_mass, mvals[a])
-        self.coord_extent = tuple([max(10,max_coords[a]-min_coords[a]+1) for a in range(len(self.vis_dimensions))])
+        self.coord_extent = tuple([max(10,(max_coords[a]-min_coords[a])+1) for a in range(len(self.vis_dimensions))])
         
         if grid_res_override != None:
             self.coord_extent = grid_res_override
+            
+        origin = tuple([0.0 for d in range(len(self.vis_dimensions))])
+        extent = tuple([2.0 for d in range(len(self.vis_dimensions))])
+        
+        if grid_min_override != None and grid_max_override != None:
+            grid_cell_widths = [(grid_max_override[d] - grid_min_override[d])/grid_res_override[d] for d in range(len(self.vis_dimensions))]
 
         for a in range(len(mvals)):
-            self.visualiser.drawCell([mcoords[a][i]-min_coords[i] for i in range(len(self.vis_dimensions))], mvals[a]/self.max_mass, origin_location=tuple([0.0 for d in range(len(self.vis_dimensions))]), max_size=tuple([2.0 for d in range(len(self.vis_dimensions))]), max_res=self.coord_extent)
+            ncoords = [mcoords[a][i]-min_coords[i] for i in range(len(self.vis_dimensions))]
+            if grid_min_override != None and grid_max_override != None:
+                ncoords = [int((mcentroids[a][i]-grid_min_override[i])/grid_cell_widths[i]) for i in range(len(self.vis_dimensions))]
+            self.visualiser.drawCell(ncoords, mvals[a]/self.max_mass, origin_location=origin, max_size=extent, max_res=self.coord_extent)
 
         self.visualiser.endRendering()
 

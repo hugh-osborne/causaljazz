@@ -74,8 +74,8 @@ class Visualiser:
             glColor3fv(colours[x])
             x += 1
             vert = [0 for v in self.verts[vertex]]
-            vert[0] = (self.verts[vertex][0] * scale[0]) + pos[0]
-            vert[1] = (self.verts[vertex][1] * scale[1]) + pos[1]
+            vert[0] = (self.verts[vertex][0] * (scale[0]/2.0)) + pos[0]
+            vert[1] = (self.verts[vertex][1] * (scale[1]/2.0)) + pos[1]
             if self.num_dimensions == 3:
                 vert[2] = 0.0
                 glVertex3fv(vert)
@@ -94,9 +94,9 @@ class Visualiser:
             glColor4fv(colours[x])
             x += 1
             vert = [0 for v in self.verts[vertex]]
-            vert[0] = (self.verts[vertex][0] * scale[0]) + pos[0]
-            vert[1] = (self.verts[vertex][1] * scale[1]) + pos[1]
-            vert[2] = (self.verts[vertex][2] * scale[2]) + pos[2]
+            vert[0] = (self.verts[vertex][0] * (scale[0]/2.0)) + pos[0]
+            vert[1] = (self.verts[vertex][1] * (scale[1]/2.0)) + pos[1]
+            vert[2] = (self.verts[vertex][2] * (scale[2]/2.0)) + pos[2]
             glVertex3fv(vert)
 
         glEnd()
