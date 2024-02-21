@@ -196,7 +196,7 @@ class pmf_cpu:
         i = 0
         for v_key, v_val in vals.items():
             for d in range(len([a for a in dimensions])):
-                final_centroids[i][d] = self.cell_base[dimensions[d]] + (self.cell_widths[dimensions[d]]*(v_key[d]))
+                final_centroids[i][d] = self.cell_base[dimensions[d]] + (self.cell_widths[dimensions[d]]*(v_key[d]+0.5))
             i += 1
 
         return final_coords, final_centroids, final_vals
@@ -228,10 +228,34 @@ class pmf_cpu:
         for a in range(len(mvals)):
             ncoords = [mcoords[a][i]-min_coords[i] for i in range(len(self.vis_dimensions))]
             if grid_min_override != None and grid_max_override != None:
-                ncoords = [int((mcentroids[a][i]-grid_min_override[i])/grid_cell_widths[i]) for i in range(len(self.vis_dimensions))]
+                print(ncoords)
+                ncoords = [int(((mcentroids[a][i] - self.cell_base[self.vis_dimensions[i]])-grid_min_override[i])/grid_cell_widths[i]) for i in range(len(self.vis_dimensions))]
             self.visualiser.drawCell(ncoords, mvals[a]/self.max_mass, origin_location=origin, max_size=extent, max_res=self.coord_extent)
 
         self.visualiser.endRendering()
+        
+    def sample(self, num_points):
+        points = []
+
+        cmf = []        
+        prob = 0.0
+        for key, val in self.cell_buffer.items():
+            prob += val
+            cmf = cmf + [(prob, key)]
+
+        for p in range(num_points):
+            r = np.random.uniform()
+            coord = cmf[-1][1]
+            for c in range(len(cmf)):
+                if r < cmf[c][0]:
+                    coord = cmf[c][1]
+                    break
+                
+            inner_r = [np.random.uniform() for i in range(self.dims)]
+            point = [self.calcCellCentroid(coord)[a] + ((inner_r[a]-0.5)*self.cell_widths[a]) for a in range(self.dims)]
+            points = points + [point]
+            
+        return points 
 
 
 class pmf_gpu:

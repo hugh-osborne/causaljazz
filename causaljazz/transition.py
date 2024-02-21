@@ -19,16 +19,13 @@ class transition_cpu:
         self.transition_buffer = {}
 
     # Add a noise kernel
-    def addNoiseKernel(self, kernel, dimension):
-        kernel_transitions = {}
-        cs = tuple(np.zeros(self.pmf.dims).tolist())
-        kernel_transitions[cs] = []
-        for c in range(len(kernel)):
-            if kernel[c] > 0.0:
-                kernel_transitions[cs] = kernel_transitions[cs] + [(kernel[c], [c-int(len(kernel)/2) if d == dimension else 0 for d in range(self.pmf.dims)])]
-        self.noise_kernels = self.noise_kernels + [[1.0,kernel_transitions[cs]]]
+    def addNoiseKernel(self, kernel_pmf, centre_coord):
+        kernel_transitions = []
+        for coord, val in kernel_pmf.cell_buffer.items():
+            kernel_transitions = kernel_transitions + [(val,tuple((np.array(coord) - np.array(centre_coord)).tolist()))]
+        self.noise_kernels = self.noise_kernels + [kernel_transitions]
         return len(self.noise_kernels) - 1
-
+    
     # Calculate the transitions for each cell based on the given centroid and centroid after one application of self.func (stepped_centroid)
     # The centroid calculation is not done here because sometimes it's better to batch function application (for example with an ANN)
     def calcTransitions(self, out_pmf, stepped_centroid, d=0, target_coord=[], mass=1.0):
@@ -115,27 +112,21 @@ class transition_cpu:
             out_pmf.cell_buffer[coord] /= mass_summed
 
     def applyNoiseKernel(self, kernel_id, in_pmf, out_pmf):
-        new_coords = self.checkTransitionsMatchBuffer(in_pmf, out_pmf)
-        
         kernel = self.noise_kernels[kernel_id]
         
         # Set the next buffer mass values to 0
         for a in out_pmf.cell_buffer.keys():
             out_pmf.cell_buffer[a] = 0.0
-            
-        # If there were further changes to pmf_in (new_coords is not empty), add those to pmf_out as well.
-        for c in range(len(new_coords)):
-            out_pmf.cell_buffer[tuple(new_coords[c])] = 0.0
 
         # Apply the kernel
-        for coord in self.pmf.cell_buffer:
-            for ts in kernel[1]:
+        for coord in in_pmf.cell_buffer:
+            for ts in kernel:
                 relative_ts_coord = [a for a in ts[1]]
                 for d in range(len(relative_ts_coord)):
                     relative_ts_coord[d] = coord[d] + relative_ts_coord[d]
                 relative_ts = [ts[0],relative_ts_coord]
                 if tuple(relative_ts_coord) not in out_pmf.cell_buffer.keys():
-                    out_pmf.cell_buffer[tuple(new_coords[c])] = 0.0
+                    out_pmf.cell_buffer[tuple(relative_ts_coord)] = 0.0
                 self.updateCell(out_pmf.cell_buffer, relative_ts, in_pmf.cell_buffer[coord])
 
         remove = []
@@ -147,7 +138,6 @@ class transition_cpu:
 
         for a in remove:
             out_pmf.cell_buffer.pop(a, None)
-            self.transition_buffer.pop(a, None)
                 
         for coord in out_pmf.cell_buffer:
             out_pmf.cell_buffer[coord] /= mass_summed
