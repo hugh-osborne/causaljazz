@@ -142,9 +142,11 @@ class pmf_cpu:
         # assert dimension of points matches that of the grid
         mass_per_point = 1.0 / points.shape[0]
         # First cell is the location of the first point.
+
+        self.cell_base = points[0]
         cell_base_coords = self.findCellCoordsOfPoint(points[0])
         self.vis_coord_offset = cell_base_coords
-        self.cell_base = points[0]
+        
         
         for p in points:
             cs = tuple((np.asarray(self.findCellCoordsOfPoint(p))-cell_base_coords).tolist())
@@ -205,6 +207,12 @@ class pmf_cpu:
         if not self.visualiser.beginRendering():
             return
         
+        if grid_max_override != None and grid_min_override != None:
+            for d in range(len(self.vis_dimensions)):
+                if grid_max_override[d] == grid_min_override[d]:
+                    grid_max_override[d] += 0.005
+                    grid_min_override[d] -= 0.005
+        
         mcoords, mcentroids, mvals = self.calcMarginal(self.vis_dimensions)
         self.max_mass = mvals[0]
         max_coords = mcoords[0]
@@ -228,7 +236,6 @@ class pmf_cpu:
         for a in range(len(mvals)):
             ncoords = [mcoords[a][i]-min_coords[i] for i in range(len(self.vis_dimensions))]
             if grid_min_override != None and grid_max_override != None:
-                print(ncoords)
                 ncoords = [int(((mcentroids[a][i] - self.cell_base[self.vis_dimensions[i]])-grid_min_override[i])/grid_cell_widths[i]) for i in range(len(self.vis_dimensions))]
             self.visualiser.drawCell(ncoords, mvals[a]/self.max_mass, origin_location=origin, max_size=extent, max_res=self.coord_extent)
 
