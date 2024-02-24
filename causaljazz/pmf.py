@@ -202,11 +202,18 @@ class pmf_cpu:
             i += 1
 
         return final_coords, final_centroids, final_vals
-
-    def draw(self, grid_min_override=None, grid_max_override=None, grid_res_override=None):
-        if not self.visualiser.beginRendering():
-            return
+    
+    def calcMarginalToPmf(self, dimensions, out_pmf):
+        out_pmf.cell_buffer.clear()
         
+        for cell_key, cell_val in self.cell_buffer.items():
+            reduced_key = tuple([cell_key[a] for a in range(self.dims) if a in dimensions])
+            if reduced_key not in out_pmf.cell_buffer:
+                out_pmf.cell_buffer[reduced_key] = cell_val
+            else:
+                out_pmf.cell_buffer[reduced_key] += cell_val
+                
+    def drawContinued(self, grid_min_override=None, grid_max_override=None, grid_res_override=None, vis=None):
         if grid_max_override != None and grid_min_override != None:
             for d in range(len(self.vis_dimensions)):
                 if grid_max_override[d] == grid_min_override[d]:
@@ -237,9 +244,18 @@ class pmf_cpu:
             ncoords = [mcoords[a][i]-min_coords[i] for i in range(len(self.vis_dimensions))]
             if grid_min_override != None and grid_max_override != None:
                 ncoords = [int(((mcentroids[a][i] - self.cell_base[self.vis_dimensions[i]])-grid_min_override[i])/grid_cell_widths[i]) for i in range(len(self.vis_dimensions))]
-            self.visualiser.drawCell(ncoords, mvals[a]/self.max_mass, origin_location=origin, max_size=extent, max_res=self.coord_extent)
+            vis.drawCell(ncoords, mvals[a]/self.max_mass, origin_location=origin, max_size=extent, max_res=self.coord_extent)
 
-        self.visualiser.endRendering()
+    def draw(self, grid_min_override=None, grid_max_override=None, grid_res_override=None, vis=None):
+        if vis is None:
+            vis = self.visualiser
+        
+        if not vis.beginRendering():
+            return
+        
+        self.drawContinued(grid_min_override, grid_max_override, grid_res_override, vis)
+
+        vis.endRendering()
         
     def sample(self, num_points):
         points = []
