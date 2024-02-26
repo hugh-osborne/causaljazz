@@ -7,8 +7,6 @@ class pmf_cpu:
     def __init__(self, initial_distribution, _base, _cell_widths, _mass_epsilon, _vis=None, vis_dimensions=(0,1,2)):
         # dimensions of the state space
         self.dims = _base.shape[0]
-        # origin point of full grid
-        self.base = _base
         
         # The visualiser
         self.visualiser = _vis
@@ -64,7 +62,7 @@ class pmf_cpu:
     # Todo : This badly needs a test!
     @classmethod
     def buildFromIndependentPmfs(cls, pmfs, _mass_epsilon=None, _vis=None, vis_dimensions=(0,1,2)):
-        base = np.concatenate([p.base for p in pmfs], axis=0)
+        base = np.concatenate([p.cell_base for p in pmfs], axis=0)
         cell_widths = np.concatenate([p.cell_widths for p in pmfs], axis=0)
         if _mass_epsilon is None:
             _mass_epsilon = np.min([p.mass_epsilon for p in pmfs])
@@ -91,6 +89,9 @@ class pmf_cpu:
             for a in remove_list:
                 build_cell_buffer.pop(a, None)
             prev_build_cell_buffer = build_cell_buffer.copy()
+            
+        for k in build_cell_buffer.keys():
+            build_cell_buffer[k] /= (1.0 - dropped_mass) 
 
         new_pmf.cell_buffer = build_cell_buffer.copy()
         
@@ -205,6 +206,10 @@ class pmf_cpu:
     
     def calcMarginalToPmf(self, dimensions, out_pmf):
         out_pmf.cell_buffer.clear()
+        
+        # Set out_pmf cell base to this
+        out_pmf.cell_base = np.array([self.cell_base[a] for a in dimensions])
+        out_pmf.cell_widths = np.array([self.cell_widths[a] for a in dimensions])
         
         for cell_key, cell_val in self.cell_buffer.items():
             reduced_key = tuple([cell_key[a] for a in range(self.dims) if a in dimensions])
