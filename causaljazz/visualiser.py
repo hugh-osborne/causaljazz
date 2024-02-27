@@ -1,8 +1,12 @@
 import numpy as np
+import os
 
 import OpenGL.GL
 import OpenGL.GLUT
 import OpenGL.GLU
+
+from PIL import Image
+from PIL import ImageOps
 
 import pygame
 from pygame.locals import *
@@ -11,12 +15,23 @@ from OpenGL.GL import *
 from OpenGL.GLU import *
 
 class Visualiser:
-    def __init__(self, nd=3):
+    def __init__(self, nd=3, record_png=True, out_data_filename="out_data"):
         if nd != 3 and nd != 2:
             print("Visualiser can only render 2 or 3 dimensions. (", nd, " requested)")
 
         self.num_dimensions = nd
         self.closed = False
+        
+        self.record_png = record_png
+        if self.record_png:
+            self.out_data_filename = out_data_filename
+            try:
+                os.mkdir(self.out_data_filename)
+            except OSError as error:
+                print(error)
+                print("Continuing...")
+        
+        self.file_iteration_num = 0
         
         self.rot_y = 0
         self.rot_x = 0
@@ -268,11 +283,26 @@ class Visualiser:
         return True
 
 
-    def endRendering(self):
+    def endRendering(self, iteration_num=None):
         if self.closed:
             return
         
+        if iteration_num is not None:
+            self.file_iteration_num = iteration_num
+        
         self.drawOutline()
+        
+        if self.record_png:
+            glPixelStorei(GL_PACK_ALIGNMENT, 1)
+            data = glReadPixels(0, 0, 800,800, GL_RGBA, GL_UNSIGNED_BYTE)
+            image = Image.frombytes("RGBA", (800,800), data)
+            image = ImageOps.flip(image)
+            image.save( self.out_data_filename + "/" + str(self.file_iteration_num) + '.png', 'PNG')
 
         pygame.display.flip()
         pygame.time.wait(10)
+        
+        self.file_iteration_num += 1
+
+    def convertImageOutputToVideo(self, filename="movie"):
+        os.system("ffmpeg -r 30 -i " + self.out_data_filename + "\\" + "%d.png -vcodec mpeg4 -q:v 0 -y " + filename + ".mp4")
