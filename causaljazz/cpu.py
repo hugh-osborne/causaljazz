@@ -1,9 +1,8 @@
 import numpy as np
 from .visualiser import Visualiser
-from .grid import NdGrid
 import matplotlib.pyplot as plt
 
-class pmf_cpu:
+class pmf:
     def __init__(self, initial_distribution, _base, _cell_widths, _mass_epsilon, _vis=None, vis_dimensions=(0,1,2)):
         # dimensions of the state space
         self.dims = _base.shape[0]
@@ -283,62 +282,142 @@ class pmf_cpu:
             point = [self.calcCellCentroid(coord)[a] + ((inner_r[a]-0.5)*self.cell_widths[a]) for a in range(self.dims)]
             points = points + [point]
             
-        return points 
-
-
-class pmf_gpu:
-    def __init__(self, initial_distribution, _base, _size, _res, _vis=None, vis_dimensions=(0,1,2)):
-        # The visualiser
-        self.visualiser = _vis
-        self.vis_dimensions = vis_dimensions
-        
-        self.grid = NdGrid(_base, _size, _res, initial_distribution)
-        
-        self.vis_coords = None
-        self.vis_centroids = None
-
-    # Do CPU marginal calculation for now. Slow because we need to move the full distribution off card
-    def calcMarginals(self):
-        final_vals = []
-        final_vs = []
-        for d in range(self.grid.numDimensions()):
-            other_dims = tuple([i for i in range(self.grid.numDimensions()) if i != d])
-            final_vals = final_vals + [np.sum(self.grid.readData(), other_dims)]
-            final_vs = final_vs + [np.linspace(self.grid.base[d],self.grid.base[d] + self.grid.size[d],self.grid.res[d])]
-
-        return final_vs, final_vals
-
-    def calcMarginal(self, dimensions):
-        reduced_grid = NdGrid([self.grid.base[d] for d in dimensions], [self.grid.size[d] for d in dimensions], [self.grid.res[d] for d in dimensions])
-        other_dims = tuple([i for i in range(self.grid.numDimensions()) if i not in dimensions])
-        final_vals = np.ravel(np.sum(self.grid.readData(), other_dims))
-        final_coords = [reduced_grid.getCellCoords(c) for c in range(reduced_grid.total_cells)]
-        final_centroids = [reduced_grid.getCellCentroid(c) for c in range(reduced_grid.total_cells)]
-        return final_coords, final_centroids, final_vals
+        return points
     
-    # Calculating the coords and centroids in calcMarginal is slow and, for the visualiser, these values stay constant (only the mass values change)
-    def calcMarginalForVis(self):
-        if self.vis_coords is None and self.vis_centroids is None:
-            reduced_grid = NdGrid([self.grid.base[d] for d in self.vis_dimensions], [self.grid.size[d] for d in self.vis_dimensions], [self.grid.res[d] for d in self.vis_dimensions])
-            self.vis_coords = [reduced_grid.getCellCoords(c) for c in range(reduced_grid.total_cells)]
-            self.vis_centroids = [reduced_grid.getCellCentroid(c) for c in range(reduced_grid.total_cells)]
-            
-        other_dims = tuple([i for i in range(self.grid.numDimensions()) if i not in self.vis_dimensions])
-        final_vals = np.ravel(np.sum(self.grid.readData(), other_dims))
+class transition:
+    def __init__(self, _func):
         
-        return self.vis_coords, self.vis_centroids, final_vals
+        # Noise kernels are stored like the values in the cell buffers: a pair.
+        # The first value is 1.0 : The full amount of mass in each cell is spread according to the kernel
+        # The second value is a list of transitions where the cell coords are relative to the cell to which the kernel will be applied
+        self.noise_kernels = []
+        
+        # The deterministic function upon which the transiions are based
+        self.func = _func
+        
+        # cell_buffer transition values for pmf
+        self.transition_buffer = {}
 
-    def draw(self):
-        if not self.visualiser.beginRendering():
-            return
+    # Add a noise kernel
+    def addNoiseKernel(self, kernel_pmf, centre_coord):
+        kernel_transitions = []
+        for coord, val in kernel_pmf.cell_buffer.items():
+            kernel_transitions = kernel_transitions + [(val,tuple((np.array(coord) - np.array(centre_coord)).tolist()))]
+        self.noise_kernels = self.noise_kernels + [kernel_transitions]
+        return len(self.noise_kernels) - 1
+    
+    # Calculate the transitions for each cell based on the given centroid and centroid after one application of self.func (stepped_centroid)
+    # The centroid calculation is not done here because sometimes it's better to batch function application (for example with an ANN)
+    def calcTransitions(self, out_pmf, stepped_centroid, d=0, target_coord=[], mass=1.0):
+        if len(target_coord) == len(stepped_centroid):
+            return [(mass, target_coord)]
         
-        mcoords, mcentroids, mvals = self.calcMarginalForVis()
+        t_cell_location = out_pmf.getPointModuloDim(stepped_centroid, d)
+        t_cell_lo = out_pmf.findCellCoordsOfPointDim(stepped_centroid, d)
         
-        self.max_mass = 0.0
-        for m in mvals:
-            self.max_mass = max(self.max_mass, m)
+        if t_cell_location < 0.5: # cell spreads to cell below
+            t_cell_hi = t_cell_lo-1
+            t_prop_lo = t_cell_location + 0.5
+            t_prop_hi = 1-t_prop_lo
+        else:
+            t_cell_hi = t_cell_lo+1
+            t_prop_hi = t_cell_location - 0.5
+            t_prop_lo = 1 - t_prop_hi
+            
+        return self.calcTransitions(out_pmf, stepped_centroid, d+1, target_coord + [t_cell_lo], mass*t_prop_lo) + self.calcTransitions(out_pmf, stepped_centroid, d+1, target_coord + [t_cell_hi], mass*t_prop_hi)
+
+    # Update the mass of a cell
+    def updateCell(self, new_cell_dict, transition, mass):
+        t = [a for a in transition[1]]
+        if tuple(t) not in new_cell_dict:
+            new_cell_dict[tuple(t)] = 0.0    
+        new_cell_dict[tuple(t)] += mass*transition[0]
         
-        for a in range(len(mvals)):
-            self.visualiser.drawCell(mcoords[a], mvals[a] / self.max_mass, origin_location=tuple([0.0 for d in range(len(self.vis_dimensions))]), max_size=tuple([2.0 for d in range(len(self.vis_dimensions))]), max_res=[self.grid.res[d] for d in self.vis_dimensions])
+    def checkTransitionsMatchBuffer(self, in_pmf, out_pmf):
+        new_coords = []
+        centroids = [] 
+        for coord in in_pmf.cell_buffer.keys():
+            if coord not in self.transition_buffer.keys(): # the pmf has been altered elsewhere so we need to calculate the transitions for any new cells
+                centroid = [0 for a in range(len(coord))]
+                for d in range(len(coord)):
+                    centroid[d] = in_pmf.cell_base[d] + ((coord[d]+0.5)*in_pmf.cell_widths[d])
+                new_coords = new_coords + [coord]
+                centroids = centroids + [centroid]
         
-        self.visualiser.endRendering()
+        if len(centroids) > 0:
+            shifted_centroids = self.func(centroids)
+            
+        for c in range(len(new_coords)):
+            self.transition_buffer[tuple(new_coords[c])] = self.calcTransitions(out_pmf, shifted_centroids[c])
+            
+        remove = []
+        for key in self.transition_buffer.keys():
+            if key not in in_pmf.cell_buffer.keys():
+                remove = remove + [key]
+        
+        for a in remove:        
+            self.transition_buffer.pop(a, None)
+            
+        return new_coords
+        
+    def applyFunction(self, in_pmf, out_pmf):
+        new_coords = self.checkTransitionsMatchBuffer(in_pmf, out_pmf)
+        
+        # Set the next buffer mass values to 0
+        for a in out_pmf.cell_buffer.keys():
+            out_pmf.cell_buffer[a] = 0.0
+            
+        # If there were further changes to pmf_in (new_coords is not empty), add those to pmf_out as well.
+        for c in range(len(new_coords)):
+            out_pmf.cell_buffer[tuple(new_coords[c])] = 0.0
+        
+        # Fill the pmf_out cell buffer with the updated mass values
+        for t_key, t_val in self.transition_buffer.items():
+            for ts in t_val:
+                self.updateCell(out_pmf.cell_buffer, ts, in_pmf.cell_buffer[t_key])
+
+        # Remove any cells with a small amount of mass and keep a total to spread back to the remaining population
+        remove = []
+        mass_summed = 1.0
+        for a in out_pmf.cell_buffer.keys():
+            if out_pmf.cell_buffer[a] < in_pmf.mass_epsilon:
+                remove = remove + [a]
+                mass_summed -= out_pmf.cell_buffer[a]
+
+        for a in remove:
+            out_pmf.cell_buffer.pop(a, None)
+            self.transition_buffer.pop(a, None)
+            
+        for coord in out_pmf.cell_buffer:
+            out_pmf.cell_buffer[coord] /= mass_summed
+
+    def applyNoiseKernel(self, kernel_id, in_pmf, out_pmf):
+        kernel = self.noise_kernels[kernel_id]
+        
+        # Set the next buffer mass values to 0
+        for a in out_pmf.cell_buffer.keys():
+            out_pmf.cell_buffer[a] = 0.0
+
+        # Apply the kernel
+        for coord in in_pmf.cell_buffer:
+            for ts in kernel:
+                relative_ts_coord = [a for a in ts[1]]
+                for d in range(len(relative_ts_coord)):
+                    relative_ts_coord[d] = coord[d] + relative_ts_coord[d]
+                relative_ts = [ts[0],relative_ts_coord]
+                if tuple(relative_ts_coord) not in out_pmf.cell_buffer.keys():
+                    out_pmf.cell_buffer[tuple(relative_ts_coord)] = 0.0
+                self.updateCell(out_pmf.cell_buffer, relative_ts, in_pmf.cell_buffer[coord])
+
+        remove = []
+        mass_summed = 1.0
+        for a in out_pmf.cell_buffer.keys():
+            if out_pmf.cell_buffer[a] < out_pmf.mass_epsilon:
+                remove = remove + [a]
+                mass_summed -= out_pmf.cell_buffer[a]
+
+        for a in remove:
+            out_pmf.cell_buffer.pop(a, None)
+                
+        for coord in out_pmf.cell_buffer:
+            out_pmf.cell_buffer[coord] /= mass_summed
