@@ -6,6 +6,7 @@ class pmf:
     def __init__(self, initial_distribution, _base, _cell_widths, _mass_epsilon, _vis=None, vis_dimensions=(0,1,2)):
         # dimensions of the state space
         self.dims = _base.shape[0]
+        self._base = _base
         
         # The visualiser
         self.visualiser = _vis
@@ -203,8 +204,8 @@ class pmf:
 
         return final_coords, final_centroids, final_vals
     
-    def calcMarginalToPmf(self, dimensions, out_pmf):
-        out_pmf.cell_buffer.clear()
+    def calcMarginalToPmf(self, dimensions):
+        out_pmf = pmf([], self._base[dimensions], self.cell_widths[dimensions], self.mass_epsilon, self.visualiser, self.vis_dimensions)
         
         # Set out_pmf cell base to this
         out_pmf.cell_base = np.array([self.cell_base[a] for a in dimensions])
@@ -216,6 +217,8 @@ class pmf:
                 out_pmf.cell_buffer[reduced_key] = cell_val
             else:
                 out_pmf.cell_buffer[reduced_key] += cell_val
+                
+        return out_pmf
                 
     def drawContinued(self, grid_min_override=None, grid_max_override=None, grid_res_override=None, vis=None):
         if grid_max_override != None and grid_min_override != None:
@@ -285,7 +288,7 @@ class pmf:
         return points
     
 class transition:
-    def __init__(self, _func):
+    def __init__(self, _func, num_input_dimensions):
         
         # Noise kernels are stored like the values in the cell buffers: a pair.
         # The first value is 1.0 : The full amount of mass in each cell is spread according to the kernel
@@ -294,6 +297,7 @@ class transition:
         
         # The deterministic function upon which the transiions are based
         self.func = _func
+        self.input_pmf_dimensions = range(num_input_dimensions)
         
         # cell_buffer transition values for pmf
         self.transition_buffer = {}
@@ -333,9 +337,23 @@ class transition:
             new_cell_dict[tuple(t)] = 0.0    
         new_cell_dict[tuple(t)] += mass*transition[0]
         
+    # If we're changing the ordering of the dimensions of the input or the number of dimensions.
+    # We need to clear the transition_buffer because it'll all be wrong.
+    # Then we'll recalculate in checkTransitionsMatchBuffer.
+    def changeInputDimensions(self, new_dims):
+        # As this is leads to an expensive recalc, let's just check we're not doing a no-op here
+        if len(new_dims) == len(self.input_pmf_dimensions):
+            if all([new_dims[a] == self.input_pmf_dimensions[a] for a in len(new_dims)]):
+                return
+            
+        self.input_pmf_dimensions = [a for a in new_dims]
+        self.transition_buffer.clear()
+        
     def checkTransitionsMatchBuffer(self, in_pmf, out_pmf):
         new_coords = []
         centroids = [] 
+        # the function itself may only apply to a subset of dimensions in the input pmf so collect that too
+        relevant_centroids = []
         for coord in in_pmf.cell_buffer.keys():
             if coord not in self.transition_buffer.keys(): # the pmf has been altered elsewhere so we need to calculate the transitions for any new cells
                 centroid = [0 for a in range(len(coord))]
@@ -343,9 +361,11 @@ class transition:
                     centroid[d] = in_pmf.cell_base[d] + ((coord[d]+0.5)*in_pmf.cell_widths[d])
                 new_coords = new_coords + [coord]
                 centroids = centroids + [centroid]
+                relevant_centroids = relevant_centroids + [centroid[self.input_pmf_dimensions]]
         
         if len(centroids) > 0:
-            shifted_centroids = self.func(centroids)
+            result_values = self.func(relevant_centroids)
+            shifted_centroids = np.stack([np.array(centroids), result_values])
             
         for c in range(len(new_coords)):
             self.transition_buffer[tuple(new_coords[c])] = self.calcTransitions(out_pmf, shifted_centroids[c])
