@@ -297,7 +297,7 @@ class transition:
         
         # The deterministic function upon which the transiions are based
         self.func = _func
-        self.input_pmf_dimensions = range(num_input_dimensions)
+        self.input_pmf_dimensions = [a for a in range(num_input_dimensions)]
         
         # cell_buffer transition values for pmf
         self.transition_buffer = {}
@@ -343,7 +343,7 @@ class transition:
     def changeInputDimensions(self, new_dims):
         # As this is leads to an expensive recalc, let's just check we're not doing a no-op here
         if len(new_dims) == len(self.input_pmf_dimensions):
-            if all([new_dims[a] == self.input_pmf_dimensions[a] for a in len(new_dims)]):
+            if all([new_dims[a] == self.input_pmf_dimensions[a] for a in range(len(new_dims))]):
                 return
             
         self.input_pmf_dimensions = [a for a in new_dims]
@@ -361,11 +361,11 @@ class transition:
                     centroid[d] = in_pmf.cell_base[d] + ((coord[d]+0.5)*in_pmf.cell_widths[d])
                 new_coords = new_coords + [coord]
                 centroids = centroids + [centroid]
-                relevant_centroids = relevant_centroids + [centroid[self.input_pmf_dimensions]]
+                relevant_centroids = relevant_centroids + [[centroid[a] for a in self.input_pmf_dimensions]]
         
         if len(centroids) > 0:
             result_values = self.func(relevant_centroids)
-            shifted_centroids = np.stack([np.array(centroids), result_values])
+            shifted_centroids = np.concatenate([np.array(centroids), result_values], axis=1)
             
         for c in range(len(new_coords)):
             self.transition_buffer[tuple(new_coords[c])] = self.calcTransitions(out_pmf, shifted_centroids[c])
