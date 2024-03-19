@@ -94,6 +94,14 @@ class pmf:
         new_pmf.cell_buffer = build_cell_buffer.copy()
         
         return new_pmf
+    
+    @classmethod
+    def duplicate(cls, source):
+        new_pmf = cls([], source.cell_base.copy(), source.cell_widths.copy(), source.mass_epsilon, source.visualiser, source.vis_dimensions)
+        new_pmf.cell_base = source.cell_base.copy()
+        new_pmf.vis_coord_offset = source.vis_coord_offset
+        new_pmf.cell_buffer = source.cell_buffer.copy()
+        return new_pmf
         
     # def copyToGpu(self, pmf, new_base=None, new_size=None):
     #     if new_base is None:
@@ -218,47 +226,50 @@ class pmf:
                 
         return out_pmf
                 
-    def drawContinued(self, grid_min_override=None, grid_max_override=None, grid_res_override=None, vis=None):
+    def drawContinued(self, grid_min_override=None, grid_max_override=None, grid_res_override=None, vis=None, vis_dimensions=None):
         if grid_max_override != None and grid_min_override != None:
-            for d in range(len(self.vis_dimensions)):
+            for d in range(len(vis_dimensions)):
                 if grid_max_override[d] == grid_min_override[d]:
                     grid_max_override[d] += 0.005
                     grid_min_override[d] -= 0.005
         
-        mcoords, mcentroids, mvals = self.calcMarginal(self.vis_dimensions)
+        mcoords, mcentroids, mvals = self.calcMarginal(vis_dimensions)
         self.max_mass = mvals[0]
         max_coords = mcoords[0]
         min_coords = mcoords[0]
         for a in range(len(mvals)):
             #mcoords[a] = [mcoords[a][i] + self.vis_coord_offset[self.vis_dimensions[i]] for i in range(len(self.vis_dimensions))]
-            max_coords = tuple([max(max_coords[i],mcoords[a][i]) for i in range(len(self.vis_dimensions))])
-            min_coords = tuple([min(min_coords[i],mcoords[a][i]) for i in range(len(self.vis_dimensions))])
+            max_coords = tuple([max(max_coords[i],mcoords[a][i]) for i in range(len(vis_dimensions))])
+            min_coords = tuple([min(min_coords[i],mcoords[a][i]) for i in range(len(vis_dimensions))])
             self.max_mass = max(self.max_mass, mvals[a])
-        self.coord_extent = tuple([max(10,(max_coords[a]-min_coords[a])+1) for a in range(len(self.vis_dimensions))])
+        self.coord_extent = tuple([max(10,(max_coords[a]-min_coords[a])+1) for a in range(len(vis_dimensions))])
         
         if grid_res_override != None:
             self.coord_extent = grid_res_override
             
-        origin = tuple([0.0 for d in range(len(self.vis_dimensions))])
-        extent = tuple([2.0 for d in range(len(self.vis_dimensions))])
+        origin = tuple([0.0 for d in range(len(vis_dimensions))])
+        extent = tuple([2.0 for d in range(len(vis_dimensions))])
         
         if grid_min_override != None and grid_max_override != None:
-            grid_cell_widths = [(grid_max_override[d] - grid_min_override[d])/grid_res_override[d] for d in range(len(self.vis_dimensions))]
+            grid_cell_widths = [(grid_max_override[d] - grid_min_override[d])/grid_res_override[d] for d in range(len(vis_dimensions))]
 
         for a in range(len(mvals)):
-            ncoords = [mcoords[a][i]-min_coords[i] for i in range(len(self.vis_dimensions))]
+            ncoords = [mcoords[a][i]-min_coords[i] for i in range(len(vis_dimensions))]
             if grid_min_override != None and grid_max_override != None:
-                ncoords = [int(((mcentroids[a][i] - self.cell_base[self.vis_dimensions[i]])-grid_min_override[i])/grid_cell_widths[i]) for i in range(len(self.vis_dimensions))]
+                ncoords = [int(((mcentroids[a][i] - self.cell_base[vis_dimensions[i]])-grid_min_override[i])/grid_cell_widths[i]) for i in range(len(vis_dimensions))]
             vis.drawCell(ncoords, mvals[a]/self.max_mass, origin_location=origin, max_size=extent, max_res=self.coord_extent)
 
-    def draw(self, grid_min_override=None, grid_max_override=None, grid_res_override=None, vis=None):
+    def draw(self, grid_min_override=None, grid_max_override=None, grid_res_override=None, vis=None, vis_dimensions=None):
         if vis is None:
             vis = self.visualiser
+
+        if vis_dimensions is None:
+            vis_dimensions = self.vis_dimensions
         
         if not vis.beginRendering():
             return
         
-        self.drawContinued(grid_min_override, grid_max_override, grid_res_override, vis)
+        self.drawContinued(grid_min_override, grid_max_override, grid_res_override, vis, vis_dimensions)
 
         vis.endRendering()
         
@@ -376,6 +387,7 @@ class transition:
         print("Shift centroids...")
         if len(centroids) > 0:
             result_values = self.func(centroids)
+            print(centroid[0], result_values[0])
             #shifted_centroids = np.concatenate([np.array(centroids), result_values], axis=1)
         print("done.")
             
@@ -403,29 +415,26 @@ class transition:
         
         print("update cells.")
         # Fill the pmf_out cell buffer with the updated mass values
+        mass_summed = 0.0
         for coord in in_pmf.cell_buffer.keys():
+            if in_pmf.cell_buffer[coord] < out_pmf.mass_epsilon:
+                continue
+            mass_summed += in_pmf.cell_buffer[coord]
+            #print(self.input_pmf_dimensions, self.transition_buffer[tuple([coord[a] for a in self.input_pmf_dimensions])])
             for ts in self.transition_buffer[tuple([coord[a] for a in self.input_pmf_dimensions])]:
                 if self.input_output_mapping is not None:
+                    #print((ts[0], tuple([coord[self.input_output_mapping[c]] for c in self.input_output_mapping.keys()]) + tuple(ts[1])))
                     self.updateCell(out_pmf.cell_buffer, (ts[0], tuple([coord[self.input_output_mapping[c]] for c in self.input_output_mapping.keys()]) + tuple(ts[1])), in_pmf.cell_buffer[coord])
                 else:
                     self.updateCell(out_pmf.cell_buffer, (ts[0], coord + tuple(ts[1])), in_pmf.cell_buffer[coord])
                 
         print("done.")
 
-        # Remove any cells with a small amount of mass and keep a total to spread back to the remaining population
-        remove = []
-        mass_summed = 1.0
-        for a in out_pmf.cell_buffer.keys():
-            if out_pmf.cell_buffer[a] < out_pmf.mass_epsilon:
-                remove = remove + [a]
-                mass_summed -= out_pmf.cell_buffer[a]
-
-        for a in remove:
-            out_pmf.cell_buffer.pop(a, None)
-            #self.transition_buffer.pop(a, None)
-            
+        print("rescale...")
         for coord in out_pmf.cell_buffer:
             out_pmf.cell_buffer[coord] /= mass_summed
+            
+        print("done")
 
     def applyNoiseKernel(self, kernel_id, in_pmf, out_pmf):
         kernel = self.noise_kernels[kernel_id]
