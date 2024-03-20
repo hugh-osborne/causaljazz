@@ -256,7 +256,7 @@ class pmf:
         for a in range(len(mvals)):
             ncoords = [mcoords[a][i]-min_coords[i] for i in range(len(vis_dimensions))]
             if grid_min_override != None and grid_max_override != None:
-                ncoords = [int(((mcentroids[a][i] - self.cell_base[vis_dimensions[i]])-grid_min_override[i])/grid_cell_widths[i]) for i in range(len(vis_dimensions))]
+                ncoords = [int((mcentroids[a][i]-grid_min_override[i])/grid_cell_widths[i]) for i in range(len(vis_dimensions))]
             vis.drawCell(ncoords, mvals[a]/self.max_mass, origin_location=origin, max_size=extent, max_res=self.coord_extent)
 
     def draw(self, grid_min_override=None, grid_max_override=None, grid_res_override=None, vis=None, vis_dimensions=None):
@@ -431,8 +431,12 @@ class transition:
         print("done.")
 
         print("rescale...")
+        mass_sum = 0.0
         for coord in out_pmf.cell_buffer:
             out_pmf.cell_buffer[coord] /= mass_summed
+            mass_sum += out_pmf.cell_buffer[coord]
+            
+        print("**** MASS:", mass_sum)
             
         print("done")
 
