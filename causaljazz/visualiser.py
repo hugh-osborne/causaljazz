@@ -304,5 +304,5 @@ class Visualiser:
         
         self.file_iteration_num += 1
 
-    def convertImageOutputToVideo(self, filename="movie"):
-        os.system("ffmpeg -r 30 -i " + self.out_data_filename + "\\" + "%d.png -vcodec mpeg4 -q:v 0 -y " + filename + ".mp4")
+    def convertImageOutputToVideo(self, filename="movie", speed=30):
+        os.system("ffmpeg -r " + str(speed) + " -i " + self.out_data_filename + "\\" + "%d.png -vcodec mpeg4 -q:v 0 -y " + filename + ".mp4")
