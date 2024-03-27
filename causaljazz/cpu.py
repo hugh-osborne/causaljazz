@@ -1,12 +1,12 @@
 import numpy as np
 from .visualiser import Visualiser
 import matplotlib.pyplot as plt
+import cmath
 
 class pmf:
-    def __init__(self, initial_distribution, _base, _cell_widths, _mass_epsilon, _vis=None, vis_dimensions=(0,1,2)):
+    def __init__(self, initial_distribution, _cell_widths, _mass_epsilon, _vis=None, vis_dimensions=(0,1,2)):
         # dimensions of the state space
-        self.dims = _base.shape[0]
-        self._base = _base
+        self.dims = _cell_widths.shape[0]
         
         # The visualiser
         self.visualiser = _vis
@@ -25,8 +25,6 @@ class pmf:
         # cell_buffers
         self.cell_buffer = {}
 
-        # The base coord within the discretised state space (explained below)
-        self.cell_base = np.zeros(self.dims)
         # Due to numerical error, the total mass will be slightly more or less than 1.0 each iteration
         # To overcome this, we need to rescale all cell masses. The numerical error remains of course, 
         # but it can't exponentially increase or decrease and is held in check
@@ -41,36 +39,24 @@ class pmf:
         self.coord_extent = np.ones(self.dims) # The number of cells in each dimension direction
         # Cell colour is normalised to the maximum mass value
         self.max_mass = 1.0
-        # Other dimension values for centering the buffer in the visualiser
-        self.vis_coord_offset = (0,0,0)
+
 
         # The initial distribution is given in terms of the full state space (with zero mass values included)
         # but we only care about the non zero cells so we find the first non-zero cell and set that
         # as the "base" coordinate (cell_base)
         # All other non-zero cell coords are given in relation to the cell_base.
-        first_cell = True
-        cell_base_coords = np.zeros(self.dims)
         for idx, val in np.ndenumerate(initial_distribution):
             if val > 0.0:
-                if first_cell:
-                    cell_base_coords = idx
-                    self.vis_coord_offset = cell_base_coords
-                    self.cell_base = _base + (np.multiply(idx,_cell_widths))
-                    first_cell = False
-                self.cell_buffer[tuple((np.asarray(idx)-cell_base_coords).tolist())] = val
+                self.cell_buffer[tuple((np.asarray(idx)).tolist())] = val
     
     # Todo : This badly needs a test!
     @classmethod
     def buildFromIndependentPmfs(cls, pmfs, _mass_epsilon=None, _vis=None, vis_dimensions=(0,1,2)):
-        base = np.concatenate([p.cell_base for p in pmfs], axis=0)
         cell_widths = np.concatenate([p.cell_widths for p in pmfs], axis=0)
         if _mass_epsilon is None:
             _mass_epsilon = np.min([p.mass_epsilon for p in pmfs])
             
-        new_pmf = cls([], base, cell_widths, _mass_epsilon, _vis, vis_dimensions)
-        
-        new_pmf.vis_coord_offset = np.concatenate([p.vis_coord_offset for p in pmfs], axis=0)
-        new_pmf.cell_base = np.concatenate([p.cell_base for p in pmfs], axis=0)
+        new_pmf = cls([], cell_widths, _mass_epsilon, _vis, vis_dimensions)
         
         prev_build_cell_buffer = {}
         for k,v in pmfs[0].cell_buffer.items():
@@ -97,9 +83,7 @@ class pmf:
     
     @classmethod
     def duplicate(cls, source):
-        new_pmf = cls([], source.cell_base.copy(), source.cell_widths.copy(), source.mass_epsilon, source.visualiser, source.vis_dimensions)
-        new_pmf.cell_base = source.cell_base.copy()
-        new_pmf.vis_coord_offset = source.vis_coord_offset
+        new_pmf = cls([], source.cell_widths.copy(), source.mass_epsilon, source.visualiser, source.vis_dimensions)
         new_pmf.cell_buffer = source.cell_buffer.copy()
         return new_pmf
         
@@ -117,18 +101,18 @@ class pmf:
     #     npmf = pmf.grid.updateData(in_dist)
 
     def findCellCoordsOfPointDim(self, point, dim):
-        if point[dim] >= self.cell_base[dim]:
-            return int((point[dim] - self.cell_base[dim]) / self.cell_widths[dim])
+        if point[dim] >= 0:
+            return int(point[dim] / self.cell_widths[dim])
         else:
-            return int((point[dim] - self.cell_base[dim]) / self.cell_widths[dim]) - 1
+            return int(point[dim] / self.cell_widths[dim]) - 1
         
     
     def getPointModuloDim(self, point, dim):
-        if point[dim] >= self.cell_base[dim]:
-            p = (point[dim] - self.cell_base[dim]) / self.cell_widths[dim]
+        if point[dim] >= 0:
+            p = point[dim] / self.cell_widths[dim]
             return (p - int(p))
         else:
-            p = abs(point[dim] - self.cell_base[dim]) / self.cell_widths[dim]
+            p = abs(point[dim]) / self.cell_widths[dim]
             return 1.0 - (p - int(p))
     
     def findCellCoordsOfPoint(self, point):
@@ -148,15 +132,9 @@ class pmf:
     def generateInitialDistribtionFromSample(self, points):
         # assert dimension of points matches that of the grid
         mass_per_point = 1.0 / points.shape[0]
-        # First cell is the location of the first point.
-
-        self.cell_base = points[0]
-        cell_base_coords = self.findCellCoordsOfPoint(points[0])
-        self.vis_coord_offset = cell_base_coords
-        
         
         for p in points:
-            cs = tuple((np.asarray(self.findCellCoordsOfPoint(p))-cell_base_coords).tolist())
+            cs = tuple((np.asarray(self.findCellCoordsOfPoint(p))).tolist())
             if cs not in self.cell_buffer.keys():
                 self.cell_buffer[cs] = mass_per_point
             else:
@@ -166,7 +144,7 @@ class pmf:
         centroid = [0 for a in range(self.dims)]
 
         for d in range(self.dims):
-            centroid[d] = self.cell_base[d] + ((coords[d]+0.5)*self.cell_widths[d])
+            centroid[d] = (coords[d]+0.5)*self.cell_widths[d]
 
         return centroid
 
@@ -184,7 +162,7 @@ class pmf:
 
         for d in range(self.dims):
             for v in vs[d]:
-                final_vs[d] = final_vs[d] + [self.cell_base[d] + (self.cell_widths[d]*(v))]
+                final_vs[d] = final_vs[d] + [self.cell_widths[d]*(v)]
                 final_vals[d] = final_vals[d] + [vs[d][v]]
 
         return final_vs, final_vals
@@ -205,16 +183,15 @@ class pmf:
         i = 0
         for v_key, v_val in vals.items():
             for d in range(len([a for a in dimensions])):
-                final_centroids[i][d] = self.cell_base[dimensions[d]] + (self.cell_widths[dimensions[d]]*(v_key[d]+0.5))
+                final_centroids[i][d] = self.cell_widths[dimensions[d]]*(v_key[d]+0.5)
             i += 1
 
         return final_coords, final_centroids, final_vals
     
     def calcMarginalToPmf(self, dimensions):
-        out_pmf = pmf([], self._base[dimensions], self.cell_widths[dimensions], self.mass_epsilon, self.visualiser, self.vis_dimensions)
+        out_pmf = pmf([], self.cell_widths[dimensions], self.mass_epsilon, self.visualiser, self.vis_dimensions)
         
         # Set out_pmf cell base to this
-        out_pmf.cell_base = np.array([self.cell_base[a] for a in dimensions])
         out_pmf.cell_widths = np.array([self.cell_widths[a] for a in dimensions])
         
         for cell_key, cell_val in self.cell_buffer.items():
@@ -257,7 +234,16 @@ class pmf:
             ncoords = [mcoords[a][i]-min_coords[i] for i in range(len(vis_dimensions))]
             if grid_min_override != None and grid_max_override != None:
                 ncoords = [int((mcentroids[a][i]-grid_min_override[i])/grid_cell_widths[i]) for i in range(len(vis_dimensions))]
-            vis.drawCell(ncoords, mvals[a]/self.max_mass, origin_location=origin, max_size=extent, max_res=self.coord_extent)
+                
+            multiplier = 100000
+            multiplied = multiplier*mvals[a]
+            if multiplied > 1.0:
+                mass_value = np.log(multiplied)/np.log(multiplier)
+                if mass_value < 0:
+                    mass_value = 0.0
+                if mass_value > 1.0:
+                    mass_value = 1.0
+                vis.drawCell(ncoords, mass_value, origin_location=origin, max_size=extent, max_res=self.coord_extent)
 
     def draw(self, grid_min_override=None, grid_max_override=None, grid_res_override=None, vis=None, vis_dimensions=None):
         if vis is None:
@@ -380,7 +366,7 @@ class transition:
             if coord not in self.transition_buffer.keys():
                 centroid = [0 for a in range(len(coord))]
                 for d in range(len(coord)):
-                    centroid[d] = in_pmf.cell_base[self.input_pmf_dimensions[d]] + ((coord[d]+0.5)*in_pmf.cell_widths[self.input_pmf_dimensions[d]])
+                    centroid[d] = (coord[d]+0.5)*in_pmf.cell_widths[self.input_pmf_dimensions[d]]
                 new_coords = new_coords + [coord]
                 centroids += [centroid]
         
@@ -417,7 +403,7 @@ class transition:
         # Fill the pmf_out cell buffer with the updated mass values
         mass_summed = 0.0
         for coord in in_pmf.cell_buffer.keys():
-            if in_pmf.cell_buffer[coord] < out_pmf.mass_epsilon:
+            if in_pmf.cell_buffer[coord] < in_pmf.mass_epsilon:
                 continue
             mass_summed += in_pmf.cell_buffer[coord]
             #print(self.input_pmf_dimensions, self.transition_buffer[tuple([coord[a] for a in self.input_pmf_dimensions])])
