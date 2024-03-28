@@ -1,7 +1,4 @@
 import numpy as np
-from .visualiser import Visualiser
-import matplotlib.pyplot as plt
-import cmath
 
 class pmf:
     def __init__(self, initial_distribution, _cell_widths, _mass_epsilon, _vis=None, vis_dimensions=(0,1,2)):
@@ -357,11 +354,9 @@ class transition:
     def checkTransitionsMatchBuffer(self, in_pmf, out_pmf):
         new_coords = []
         centroids = []
-        print("Checking", len(in_pmf.cell_buffer), "coords.")
         
         check_coords = set(map(tuple,[[coord[c] for c in self.input_pmf_dimensions] for coord in in_pmf.cell_buffer.keys()])) # maybe don't need the map here...
 
-        print("Found", len(check_coords), "coords to check.")
         for coord in check_coords:
             if coord not in self.transition_buffer.keys():
                 centroid = [0 for a in range(len(coord))]
@@ -370,27 +365,12 @@ class transition:
                 new_coords = new_coords + [coord]
                 centroids += [centroid]
         
-        print("Shift centroids...")
         if len(centroids) > 0:
             result_values = self.func(centroids)
-            print(centroid[0], result_values[0])
-            #shifted_centroids = np.concatenate([np.array(centroids), result_values], axis=1)
-        print("done.")
-            
-        print("calc transitions.")
+
         for c in range(len(new_coords)):
             self.transition_buffer[new_coords[c]] = self.calcTransitionsForLastDimension(out_pmf, result_values[c])
-        print("done.")
             
-        # remove = []
-        # for key in self.transition_buffer.keys():
-        #     if key not in in_pmf.cell_buffer.keys():
-        #         remove = remove + [key]
-        
-        # for a in remove:        
-        #     self.transition_buffer.pop(a, None)
-            
-        #return new_coords
         
     def applyFunction(self, in_pmf, out_pmf):
         self.checkTransitionsMatchBuffer(in_pmf, out_pmf)
@@ -399,32 +379,24 @@ class transition:
         for a in out_pmf.cell_buffer.keys():
             out_pmf.cell_buffer[a] = 0.0
         
-        print("update cells.")
         # Fill the pmf_out cell buffer with the updated mass values
         mass_summed = 0.0
         for coord in in_pmf.cell_buffer.keys():
             if in_pmf.cell_buffer[coord] < in_pmf.mass_epsilon:
                 continue
             mass_summed += in_pmf.cell_buffer[coord]
-            #print(self.input_pmf_dimensions, self.transition_buffer[tuple([coord[a] for a in self.input_pmf_dimensions])])
+            
             for ts in self.transition_buffer[tuple([coord[a] for a in self.input_pmf_dimensions])]:
                 if self.input_output_mapping is not None:
-                    #print((ts[0], tuple([coord[self.input_output_mapping[c]] for c in self.input_output_mapping.keys()]) + tuple(ts[1])))
                     self.updateCell(out_pmf.cell_buffer, (ts[0], tuple([coord[self.input_output_mapping[c]] for c in self.input_output_mapping.keys()]) + tuple(ts[1])), in_pmf.cell_buffer[coord])
                 else:
                     self.updateCell(out_pmf.cell_buffer, (ts[0], coord + tuple(ts[1])), in_pmf.cell_buffer[coord])
                 
-        print("done.")
-
-        print("rescale...")
         mass_sum = 0.0
         for coord in out_pmf.cell_buffer:
             out_pmf.cell_buffer[coord] /= mass_summed
             mass_sum += out_pmf.cell_buffer[coord]
-            
-        print("**** MASS:", mass_sum)
-            
-        print("done")
+
 
     def applyNoiseKernel(self, kernel_id, in_pmf, out_pmf):
         kernel = self.noise_kernels[kernel_id]
