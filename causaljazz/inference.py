@@ -1,3 +1,4 @@
+from genericpath import samefile
 from .cpu import pmf
 
 class TEDAG_FUNCTION:
@@ -32,7 +33,7 @@ class TEDAG:
             return dims
                 
             
-    def __init__(self, time_step, functions, observables=[]):
+    def __init__(self, time_step, functions, observables=[], verbose=False):
         # self.dt is largely irrelevant right now but later we might want to know what the simulation time is to multiply the current iteration by dt
         self.dt = time_step
         
@@ -42,6 +43,8 @@ class TEDAG:
         self.current_nodes = {}
         self.dropped_nodes = {}
         self.observables = observables
+        
+        self.verbose = verbose
         
         self.DAG = {}
         for f in functions:
@@ -102,9 +105,14 @@ class TEDAG:
             if not all([a + str(iteration-func.dt_multiple) in self.current_nodes for a in func.args]): # find a node for which all incoming nodes have already been evaluated for this iteration
                 continue
             
+            if self.verbose:
+                print("In findNextFunctionAndApply, found function", result_var_name, "at iteration", iteration)
+            
             # If the function is a no-op (say if the input variable is a constant and we're just moving to the next iteration)
             # then just increment the iteration of the node
             if func.transition is None:
+                if self.verbose:
+                    print("Function is a no-op. Updating the iteration number and associated keys.")
                 self.current_nodes[node_key] = self.current_nodes[result_var_name + str(iteration-func.dt_multiple)]
                 self.current_nodes[node_key].iteration = iteration
                 self.current_nodes[node_key].key = node_key
@@ -119,6 +127,9 @@ class TEDAG:
             func_arg_node_keys = [a + str(iteration-func.dt_multiple) for a in func.args]
             func_arg_nodes = [self.current_nodes[k] for k in func_arg_node_keys]
             
+            if self.verbose:
+                print("Required input variables are:", func_arg_node_keys)
+            
             involved_pmf_inds = []
             for key in func_arg_node_keys:
                 if self.current_nodes[key].pmf_index not in involved_pmf_inds:
@@ -128,6 +139,8 @@ class TEDAG:
             args_pmf = self.pmfs[input_pmf_index].pmf
             rebuilt_input = len(involved_pmf_inds) > 1
             if len(involved_pmf_inds) > 1:
+                if self.verbose:
+                    print("Input variables are from separate pmfs. Combining...")
                 args_pmf = pmf.buildFromIndependentPmfs([self.pmfs[a].pmf for a in involved_pmf_inds])
                 # build new nodes list for new pmf
                 pmf_nodes = []
@@ -148,6 +161,9 @@ class TEDAG:
             # Set the func pmf input to match the above (note there may be more nodes involved than just what the func requires)
             func.input_pmf = self.TEDAG_PMF(pmf.duplicate(args_pmf), self.pmfs[input_pmf_index].nodes)
             
+            if self.verbose:
+                print("Input pmf is", [a.key for a in self.pmfs[input_pmf_index].nodes])
+            
             in_nodes = func.input_pmf.nodes.copy()
             
             new_node = self.TEDAG_NODE(func.result, iteration)
@@ -162,8 +178,14 @@ class TEDAG:
             out_nodes = in_nodes + [new_node]
             func.output_pmf.nodes = out_nodes
             
+            if self.verbose:
+                print("Output pmf has variables", [a.key for a in out_nodes])
+            
             # Apply the function
             func_input_dims = [[n.key for n in in_nodes].index(arg + str(iteration-func.dt_multiple)) for arg in func.args]
+            
+            if self.verbose:
+                print("Variables in the input pmf required by the function are", func_input_dims)
 
             func.transition.changeInputDimensions(func_input_dims)
             

@@ -1,9 +1,10 @@
 import numpy as np
 
 class pmf:
-    def __init__(self, initial_distribution, _cell_widths, _mass_epsilon, _vis=None, vis_dimensions=(0,1,2)):
+    def __init__(self, initial_distribution, _origin, _cell_widths, _mass_epsilon, _vis=None, vis_dimensions=(0,1,2)):
         # dimensions of the state space
         self.dims = _cell_widths.shape[0]
+        self.origin = _origin
         
         # The visualiser
         self.visualiser = _vis
@@ -50,10 +51,12 @@ class pmf:
     @classmethod
     def buildFromIndependentPmfs(cls, pmfs, _mass_epsilon=None, _vis=None, vis_dimensions=(0,1,2)):
         cell_widths = np.concatenate([p.cell_widths for p in pmfs], axis=0)
+        origin = np.concatenate([p.origin for p in pmfs], axis=0)
+        
         if _mass_epsilon is None:
             _mass_epsilon = np.min([p.mass_epsilon for p in pmfs])
             
-        new_pmf = cls([], cell_widths, _mass_epsilon, _vis, vis_dimensions)
+        new_pmf = cls([], origin, cell_widths, _mass_epsilon, _vis, vis_dimensions)
         
         prev_build_cell_buffer = {}
         for k,v in pmfs[0].cell_buffer.items():
@@ -80,7 +83,7 @@ class pmf:
     
     @classmethod
     def duplicate(cls, source):
-        new_pmf = cls([], source.cell_widths.copy(), source.mass_epsilon, source.visualiser, source.vis_dimensions)
+        new_pmf = cls([], source.origin.copy(), source.cell_widths.copy(), source.mass_epsilon, source.visualiser, source.vis_dimensions)
         new_pmf.cell_buffer = source.cell_buffer.copy()
         return new_pmf
         
@@ -99,17 +102,17 @@ class pmf:
 
     def findCellCoordsOfPointDim(self, point, dim):
         if point[dim] >= 0:
-            return int(point[dim] / self.cell_widths[dim])
+            return int((point[dim] - self.origin[dim]) / self.cell_widths[dim])
         else:
-            return int(point[dim] / self.cell_widths[dim]) - 1
+            return int((point[dim] - self.origin[dim]) / self.cell_widths[dim]) - 1
         
     
     def getPointModuloDim(self, point, dim):
-        if point[dim] >= 0:
-            p = point[dim] / self.cell_widths[dim]
+        if point[dim] - self.origin[dim] >= 0:
+            p = (point[dim] - self.origin[dim]) / self.cell_widths[dim]
             return (p - int(p))
         else:
-            p = abs(point[dim]) / self.cell_widths[dim]
+            p = abs((point[dim] - self.origin[dim])) / self.cell_widths[dim]
             return 1.0 - (p - int(p))
     
     def findCellCoordsOfPoint(self, point):
@@ -129,6 +132,7 @@ class pmf:
     def generateInitialDistribtionFromSample(self, points):
         # assert dimension of points matches that of the grid
         mass_per_point = 1.0 / points.shape[0]
+        self.origin = np.zeros(self.dims)
         
         for p in points:
             cs = tuple((np.asarray(self.findCellCoordsOfPoint(p))).tolist())
@@ -141,7 +145,7 @@ class pmf:
         centroid = [0 for a in range(self.dims)]
 
         for d in range(self.dims):
-            centroid[d] = (coords[d]+0.5)*self.cell_widths[d]
+            centroid[d] = self.origin[d] + ((coords[d]+0.5)*self.cell_widths[d])
 
         return centroid
 
@@ -159,7 +163,7 @@ class pmf:
 
         for d in range(self.dims):
             for v in vs[d]:
-                final_vs[d] = final_vs[d] + [self.cell_widths[d]*(v)]
+                final_vs[d] = final_vs[d] + [self.origin[d] + self.cell_widths[d]*(v)]
                 final_vals[d] = final_vals[d] + [vs[d][v]]
 
         return final_vs, final_vals
@@ -180,13 +184,13 @@ class pmf:
         i = 0
         for v_key, v_val in vals.items():
             for d in range(len([a for a in dimensions])):
-                final_centroids[i][d] = self.cell_widths[dimensions[d]]*(v_key[d]+0.5)
+                final_centroids[i][d] = self.origin[d] + (self.cell_widths[dimensions[d]]*(v_key[d]+0.5))
             i += 1
 
         return final_coords, final_centroids, final_vals
     
     def calcMarginalToPmf(self, dimensions):
-        out_pmf = pmf([], self.cell_widths[dimensions], self.mass_epsilon, self.visualiser, self.vis_dimensions)
+        out_pmf = pmf([], self.origin[dimensions], self.cell_widths[dimensions], self.mass_epsilon, self.visualiser, self.vis_dimensions)
         
         # Set out_pmf cell base to this
         out_pmf.cell_widths = np.array([self.cell_widths[a] for a in dimensions])
@@ -361,7 +365,7 @@ class transition:
             if coord not in self.transition_buffer.keys():
                 centroid = [0 for a in range(len(coord))]
                 for d in range(len(coord)):
-                    centroid[d] = (coord[d]+0.5)*in_pmf.cell_widths[self.input_pmf_dimensions[d]]
+                    centroid[d] = in_pmf.origin[d] + ((coord[d]+0.5)*in_pmf.cell_widths[self.input_pmf_dimensions[d]])
                 new_coords = new_coords + [coord]
                 centroids += [centroid]
         
