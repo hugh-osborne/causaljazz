@@ -96,13 +96,19 @@ class TEDAG:
             
             # if we already calculated and then dropped this node, ignore it
             if node_key in self.dropped_nodes:
+                #if self.verbose:
+                #    print("Node", node_key, "in dropped nodes. Skipping.")
                 continue
             
             # if we already calculated this node, ignore it
             if node_key in self.current_nodes:
+                #if self.verbose:
+                #    print("Node", node_key, "already in current nodes. Skipping.")
                 continue
             
             if not all([a + str(iteration-func.dt_multiple) in self.current_nodes for a in func.args]): # find a node for which all incoming nodes have already been evaluated for this iteration
+                #if self.verbose:
+                #    print("Node", node_key, "is missing required args.", [a + str(iteration-func.dt_multiple) for a in func.args if a + str(iteration-func.dt_multiple) not in self.current_nodes],"Skipping.")
                 continue
             
             if self.verbose:
@@ -111,8 +117,11 @@ class TEDAG:
             # If the function is a no-op (say if the input variable is a constant and we're just moving to the next iteration)
             # then just increment the iteration of the node
             if func.transition is None:
+                # Wait! If the previous version of this is still required, we need to skip for now.
+                if any([(result_var_name in self.DAG[f].args) and (f + str(iteration) not in self.current_nodes) and (f + str(iteration) not in self.dropped_nodes) for f in self.DAG]):
+                    continue
                 if self.verbose:
-                    print("Function is a no-op. Updating the iteration number and associated keys.")
+                    print("Function for", result_var_name, "is a no-op. Updating the iteration number and associated keys.")
                 self.current_nodes[node_key] = self.current_nodes[result_var_name + str(iteration-func.dt_multiple)]
                 self.current_nodes[node_key].iteration = iteration
                 self.current_nodes[node_key].key = node_key
@@ -224,6 +233,9 @@ class TEDAG:
                     if node.name in self.observables and node.iteration == iteration:
                         continue
                         
+                    if self.verbose:
+                        print("Node", node.key, "no longer required. Deleting...")
+                        
                     # marginalise from the pmf and pop from current_nodes
                     counter = 0
                     for n in self.pmfs[node.pmf_index].nodes:
@@ -240,6 +252,9 @@ class TEDAG:
             for k in nodes_to_remove:
                 self.dropped_nodes[k] = self.current_nodes[k]
                 self.current_nodes.pop(k)
+                
+            if self.verbose:
+                print("Current Nodes:", [n for n in self.current_nodes])
                     
             return True
             
