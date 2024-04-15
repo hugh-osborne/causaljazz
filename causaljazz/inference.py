@@ -118,7 +118,7 @@ class TEDAG:
             # then just increment the iteration of the node
             if func.transition is None:
                 # Wait! If the previous version of this is still required, we need to skip for now.
-                if any([(result_var_name in self.DAG[f].args) and (f + str(iteration) not in self.current_nodes) and (f + str(iteration) not in self.dropped_nodes) for f in self.DAG]):
+                if any([result_var_name in self.DAG[f].args and self.DAG[f].dt_multiple > 0 for f in self.DAG if f is not result_var_name and f+str(iteration) not in self.current_nodes and f+str(iteration) not in self.dropped_nodes]):
                     continue
                 if self.verbose:
                     print("Function for", result_var_name, "is a no-op. Updating the iteration number and associated keys.")

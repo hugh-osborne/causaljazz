@@ -365,7 +365,7 @@ class transition:
             if coord not in self.transition_buffer.keys():
                 centroid = [0 for a in range(len(coord))]
                 for d in range(len(coord)):
-                    centroid[d] = in_pmf.origin[d] + ((coord[d]+0.5)*in_pmf.cell_widths[self.input_pmf_dimensions[d]])
+                    centroid[d] = in_pmf.origin[self.input_pmf_dimensions[d]] + ((coord[d]+0.5)*in_pmf.cell_widths[self.input_pmf_dimensions[d]])
                 new_coords = new_coords + [coord]
                 centroids += [centroid]
         
