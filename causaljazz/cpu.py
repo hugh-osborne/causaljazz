@@ -284,7 +284,7 @@ class pmf:
         return points
     
 class transition:
-    def __init__(self, _func, num_input_dimensions):
+    def __init__(self, _func, num_input_dimensions, recursive_dimension=None, transition_epsilon=0.0):
         
         # Noise kernels are stored like the values in the cell buffers: a pair.
         # The first value is 1.0 : The full amount of mass in each cell is spread according to the kernel
@@ -295,6 +295,8 @@ class transition:
         self.func = _func
         self.input_pmf_dimensions = [a for a in range(num_input_dimensions)]
         self.input_output_mapping = None
+        self.recursive_dimension = recursive_dimension
+        self.transition_epsilon = transition_epsilon
         
         # cell_buffer transition values for pmf
         self.transition_buffer = {}
@@ -345,8 +347,17 @@ class transition:
     # Update the mass of a cell
     def updateCell(self, new_cell_dict, transition, mass):
         t = [a for a in transition[1]]
+        # If there is a recursive dimension (for example, this function adds noise to a time dependent variable)
+        # For small amounts of mass that will end up getting culled, to avoid mass being incorrectly spread across the whole distribution,
+        # pass it "back" to the original cell
+        if self.recursive_dimension is not None and mass*transition[0] < self.transition_epsilon:
+            if self.input_output_mapping is not None:
+                t[-1] = t[self.input_output_mapping[self.input_pmf_dimensions[self.recursive_dimension]]]
+            else:
+                t[-1] = t[self.input_pmf_dimensions[self.recursive_dimension]]
+                
         if tuple(t) not in new_cell_dict:
-            new_cell_dict[tuple(t)] = 0.0    
+            new_cell_dict[tuple(t)] = 0.0
         new_cell_dict[tuple(t)] += mass*transition[0]
         
     def changeInputDimensions(self, new_dims):
