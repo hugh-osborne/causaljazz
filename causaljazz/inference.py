@@ -89,6 +89,39 @@ class TEDAG:
             self.interventions[iteration] += [self.pmf_counter]
             
         self.pmf_counter += 1
+        
+    @classmethod
+    def applyFunction(cls, func, in_pmf, iteration=0):
+        func.input_pmf = TEDAG.TEDAG_PMF(pmf.duplicate(in_pmf.pmf), in_pmf.nodes)
+        in_nodes = in_pmf.nodes.copy()
+            
+        new_node = TEDAG.TEDAG_NODE(func.result, iteration)
+            
+        # Build the output pmf and add it to our list
+        out_pmf = pmf.buildFromIndependentPmfs([in_pmf.pmf, func.output_pmf_template])
+        out_nodes = in_nodes + [new_node]
+        output_tedag_pmf = TEDAG.TEDAG_PMF(out_pmf, out_nodes)
+                
+        out_nodes = in_nodes + [new_node]
+        output_tedag_pmf.nodes = out_nodes
+        
+        func.output_pmf = output_tedag_pmf
+
+        # Apply the function
+        func_input_dims = [[n.key for n in in_nodes].index(arg + str(iteration-func.dt_multiple)) for arg in func.args]
+        func.transition.changeInputDimensions(func_input_dims)
+            
+        # build mapping
+        mapping = {}
+        in_names = [n.key for n in func.input_pmf.nodes]
+        out_names = [n.key for n in func.output_pmf.nodes]
+
+        for i in range(len(in_names)):
+            mapping[i] = out_names.index(in_names[i])
+                
+        func.transition.applyFunction(func.input_pmf.pmf, func.output_pmf.pmf)
+        
+        return func.output_pmf
             
     def findNextFunctionAndApply(self, iteration):
         for result_var_name, func in self.DAG.items():
