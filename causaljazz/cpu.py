@@ -101,18 +101,20 @@ class pmf:
     #     npmf = pmf.grid.updateData(in_dist)
 
     def findCellCoordsOfPointDim(self, point, dim):
-        if point[dim] >= 0:
-            return int((point[dim] - self.origin[dim]) / self.cell_widths[dim])
+        test_val = point[dim] - self.origin[dim]
+        if test_val >= 0:
+            return int(test_val / self.cell_widths[dim])
         else:
-            return int((point[dim] - self.origin[dim]) / self.cell_widths[dim]) - 1
+            return int(test_val / self.cell_widths[dim]) - 1
         
     
     def getPointModuloDim(self, point, dim):
-        if point[dim] - self.origin[dim] >= 0:
-            p = (point[dim] - self.origin[dim]) / self.cell_widths[dim]
+        test_val = point[dim] - self.origin[dim]
+        if test_val >= 0:
+            p = test_val / self.cell_widths[dim]
             return (p - int(p))
         else:
-            p = abs((point[dim] - self.origin[dim])) / self.cell_widths[dim]
+            p = abs(test_val) / self.cell_widths[dim]
             return 1.0 - (p - int(p))
     
     def findCellCoordsOfPoint(self, point):
