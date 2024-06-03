@@ -1,3 +1,4 @@
+import calendar
 import numpy as np
 
 class pmf:
@@ -44,8 +45,7 @@ class pmf:
         # as the "base" coordinate (cell_base)
         # All other non-zero cell coords are given in relation to the cell_base.
         for idx, val in np.ndenumerate(initial_distribution):
-            if val > 0.0:
-                self.cell_buffer[tuple((np.asarray(idx)).tolist())] = val
+            self.cell_buffer[tuple((np.asarray(idx)).tolist())] = val
     
     # Todo : This badly needs a test!
     @classmethod
@@ -150,6 +150,9 @@ class pmf:
             centroid[d] = self.origin[d] + ((coords[d]+0.5)*self.cell_widths[d])
 
         return centroid
+    
+    def calcCellCoordFromPoint(self, point):
+        return [int((point[d]-self.origin[d])/self.cell_widths[d]) for d in range(self.dims)]
 
     def calcMarginals(self):
         vs = [{} for d in range(self.dims)]
@@ -190,6 +193,15 @@ class pmf:
             i += 1
 
         return final_coords, final_centroids, final_vals
+    
+    def calcConditionalSliceFromCoords(self, dimensions, coord):
+        vals = {}
+        for cell_key, cell_val in self.cell_buffer.items():
+            if all([cell_key[dimensions[d]] == coord[d] for d in range(len(dimensions))]): # This cell is in the slice
+                reduced_key = tuple([cell_key[a] for a in range(self.dims) if a not in dimensions])
+                vals[reduced_key] = cell_val
+                
+        return vals
     
     def calcMarginalToPmf(self, dimensions):
         out_pmf = pmf([], self.origin[dimensions], self.cell_widths[dimensions], self.mass_epsilon, self.visualiser, self.vis_dimensions)
@@ -286,12 +298,7 @@ class pmf:
         return points
     
 class transition:
-    def __init__(self, _func, num_input_dimensions, recursive_dimension=None, transition_epsilon=0.0):
-        
-        # Noise kernels are stored like the values in the cell buffers: a pair.
-        # The first value is 1.0 : The full amount of mass in each cell is spread according to the kernel
-        # The second value is a list of transitions where the cell coords are relative to the cell to which the kernel will be applied
-        self.noise_kernels = []
+    def __init__(self, _func, num_input_dimensions, recursive_dimension=None, transition_epsilon=0.0, transition_function=False):
         
         # The deterministic function upon which the transiions are based
         self.func = _func
@@ -299,17 +306,10 @@ class transition:
         self.input_output_mapping = None
         self.recursive_dimension = recursive_dimension
         self.transition_epsilon = transition_epsilon
+        self.transition_function = transition_function
         
         # cell_buffer transition values for pmf
         self.transition_buffer = {}
-
-    # Add a noise kernel
-    def addNoiseKernel(self, kernel_pmf, centre_coord):
-        kernel_transitions = []
-        for coord, val in kernel_pmf.cell_buffer.items():
-            kernel_transitions = kernel_transitions + [(val,tuple((np.array(coord) - np.array(centre_coord)).tolist()))]
-        self.noise_kernels = self.noise_kernels + [kernel_transitions]
-        return len(self.noise_kernels) - 1
     
     def calcTransitionsForLastDimension(self, out_pmf, stepped_centroid):
         t_cell_location = out_pmf.getPointModuloDim(stepped_centroid, -1)
@@ -326,25 +326,41 @@ class transition:
             
         return [(t_prop_lo, [t_cell_lo]), (t_prop_hi, [t_cell_hi])]
     
-    # Calculate the transitions for each cell based on the given centroid and centroid after one application of self.func (stepped_centroid)
-    # The centroid calculation is not done here because sometimes it's better to batch function application (for example with an ANN)
-    def calcTransitions(self, out_pmf, stepped_centroid, d=0, target_coord=[], mass=1.0):
-        if len(target_coord) == len(stepped_centroid):
-            return [(mass, target_coord)]
+    def calcTransitionsForLastDimensionWithMoreAccuracy(self, out_pmf, stepped_low, stepped_high):
+        t_cell_location_high = out_pmf.findCellCoordsOfPointDim(stepped_high, -1)
+        t_cell_location_low = out_pmf.findCellCoordsOfPointDim(stepped_low, -1)
+        total_range = (stepped_high[-1] - stepped_low[-1]) / out_pmf.cell_widths[-1]
+
+        # Check if the two locations are in the same cell
+        if t_cell_location_high == t_cell_location_low:
+            return [(1.0, [t_cell_location_high])]
         
-        t_cell_location = out_pmf.getPointModuloDim(stepped_centroid, d)
-        t_cell_lo = out_pmf.findCellCoordsOfPointDim(stepped_centroid, d)
+        # Otherwise do the lower cell and the higher cell proportions
+        ts = [((1.0 - out_pmf.getPointModuloDim(stepped_low, -1))/total_range, [t_cell_location_low]), (out_pmf.getPointModuloDim(stepped_high, -1)/total_range, [t_cell_location_high])]
         
-        if t_cell_location < 0.5: # cell spreads to cell below
-            t_cell_hi = t_cell_lo-1
-            t_prop_lo = t_cell_location + 0.5
-            t_prop_hi = 1-t_prop_lo
-        else:
-            t_cell_hi = t_cell_lo+1
-            t_prop_hi = t_cell_location - 0.5
-            t_prop_lo = 1 - t_prop_hi
+        # If there are cells between, add them too
+        c = t_cell_location_low + 1
+        while c < t_cell_location_high:
+            ts += [(1.0/total_range, [c])]
+            c += 1
             
-        return self.calcTransitions(out_pmf, stepped_centroid, d+1, target_coord + [t_cell_lo], mass*t_prop_lo) + self.calcTransitions(out_pmf, stepped_centroid, d+1, target_coord + [t_cell_hi], mass*t_prop_hi)
+        return ts
+    
+    def calcTransitionsForLastDimensionMonteCarlo(self, out_pmf, points):
+        cells = {}
+        prop_per_point = 1.0 / len(points)
+        
+        for p in points:
+            loc = out_pmf.findCellCoordsOfPointDim(p, -1)
+            if loc not in cells:
+                cells[loc] = prop_per_point
+            else:
+                cells[loc] += prop_per_point
+                
+        ts = []
+        for k,v in cells.items():
+            ts += [(v,[k])]
+        return ts
 
     # Update the mass of a cell
     def updateCell(self, new_cell_dict, transition, mass):
@@ -358,7 +374,7 @@ class transition:
             else:
                 t[-1] = t[self.input_pmf_dimensions[self.recursive_dimension]]
                 
-        if tuple(t) not in new_cell_dict:
+        if tuple(t) not in new_cell_dict.keys():
             new_cell_dict[tuple(t)] = 0.0
         new_cell_dict[tuple(t)] += mass*transition[0]
         
@@ -368,29 +384,32 @@ class transition:
     def changeInputOutputMapping(self, new_mapping):
         self.input_output_mapping = new_mapping.copy()
         
-    def checkTransitionsMatchBuffer(self, in_pmf, out_pmf):
-        new_coords = []
-        centroids = []
+    def applyFunction(self, in_pmf, out_pmf):
+        if self.transition_function:
+            self.applyFunctionAsTransition(in_pmf, out_pmf)
+        else:
+            self.applyFunctionWithCalculatedTransition(in_pmf, out_pmf)
         
-        check_coords = set(map(tuple,[[coord[c] for c in self.input_pmf_dimensions] for coord in in_pmf.cell_buffer.keys()])) # maybe don't need the map here...
+    def applyFunctionWithCalculatedTransition(self, in_pmf, out_pmf):
+        # Check the output pmf has the cells ready to receive mass, and update the transition buffer
+        new_coords = []
+        centroids_points = []
+        num_points = 1000
+        check_coords = set(map(tuple,[[coord[c] for c in self.input_pmf_dimensions] for coord in in_pmf.cell_buffer.keys()]))
 
         for coord in check_coords:
-            if coord not in self.transition_buffer.keys():
+            if coord not in self.transition_buffer.keys():          
                 centroid = [0 for a in range(len(coord))]
                 for d in range(len(coord)):
                     centroid[d] = in_pmf.origin[self.input_pmf_dimensions[d]] + ((coord[d]+0.5)*in_pmf.cell_widths[self.input_pmf_dimensions[d]])
+                centroids_points += [centroid]
                 new_coords = new_coords + [coord]
-                centroids += [centroid]
         
-        if len(centroids) > 0:
-            result_values = self.func(centroids)
+        if len(new_coords) > 0:
+            vals = self.func(centroids_points)
 
         for c in range(len(new_coords)):
-            self.transition_buffer[new_coords[c]] = self.calcTransitionsForLastDimension(out_pmf, result_values[c])
-            
-        
-    def applyFunction(self, in_pmf, out_pmf):
-        self.checkTransitionsMatchBuffer(in_pmf, out_pmf)
+            self.transition_buffer[new_coords[c]] = self.calcTransitionsForLastDimension(out_pmf, vals[c])
         
         # Set the next buffer mass values to 0
         for a in out_pmf.cell_buffer.keys():
@@ -413,35 +432,46 @@ class transition:
         for coord in out_pmf.cell_buffer:
             out_pmf.cell_buffer[coord] /= mass_summed
             mass_sum += out_pmf.cell_buffer[coord]
-
-
-    def applyNoiseKernel(self, kernel_id, in_pmf, out_pmf):
-        kernel = self.noise_kernels[kernel_id]
-        
+            
+    # In certain cases, we may have trained a function to take grid coordinates and to output the transitions
+    # Instead of having a function take the input values and give a single output value.
+    # In this case, we ignore the transition buffer entirely and just use the function
+    def applyFunctionAsTransition(self, in_pmf, out_pmf):
         # Set the next buffer mass values to 0
         for a in out_pmf.cell_buffer.keys():
             out_pmf.cell_buffer[a] = 0.0
-
-        # Apply the kernel
-        for coord in in_pmf.cell_buffer:
-            for ts in kernel:
-                relative_ts_coord = [a for a in ts[1]]
-                for d in range(len(relative_ts_coord)):
-                    relative_ts_coord[d] = coord[d] + relative_ts_coord[d]
-                relative_ts = [ts[0],relative_ts_coord]
-                if tuple(relative_ts_coord) not in out_pmf.cell_buffer.keys():
-                    out_pmf.cell_buffer[tuple(relative_ts_coord)] = 0.0
-                self.updateCell(out_pmf.cell_buffer, relative_ts, in_pmf.cell_buffer[coord])
-
-        remove = []
-        mass_summed = 1.0
-        for a in out_pmf.cell_buffer.keys():
-            if out_pmf.cell_buffer[a] < out_pmf.mass_epsilon:
-                remove = remove + [a]
-                mass_summed -= out_pmf.cell_buffer[a]
-
-        for a in remove:
-            out_pmf.cell_buffer.pop(a, None)
+            
+        # batch calculate the transitions
+        centroids = []
+        for coord in in_pmf.cell_buffer.keys():
+            centroids += [[in_pmf.origin[d] + ((coord[d]+0.5)*in_pmf.cell_widths[d]) for d in range(in_pmf.dims)]]
+        
+        vals = self.func(centroids)
+        #print(vals.shape)
+            
+        # Fill the pmf_out cell buffer with the updated mass values
+        mass_summed = 0.0
+        val_id = 0
+        for coord in in_pmf.cell_buffer.keys():
+            if in_pmf.cell_buffer[coord] < in_pmf.mass_epsilon:
+                continue
+            mass_summed += in_pmf.cell_buffer[coord]
+            
+            # The output of the function should be a list of mass values from coordinates -0.5*len(output) to 0.5*len(output)
+            for t in range(len(vals[val_id])):
+                val = vals[val_id][t]
+                out_coord = t-int(len(vals[val_id])*0.5)
+                print(out_coord, val)
+                if self.input_output_mapping is not None:
+                    full_out_coords = tuple([coord[self.input_output_mapping[c]] for c in self.input_output_mapping.keys()]) + tuple([out_coord])
+                    self.updateCell(out_pmf.cell_buffer, (val, full_out_coords), in_pmf.cell_buffer[coord])
+                else:
+                    full_out_coords = coord + tuple([out_coord])
+                    self.updateCell(out_pmf.cell_buffer, (val, full_out_coords), in_pmf.cell_buffer[coord])
+                    
+            val_id += 1
                 
+        mass_sum = 0.0
         for coord in out_pmf.cell_buffer:
             out_pmf.cell_buffer[coord] /= mass_summed
+            mass_sum += out_pmf.cell_buffer[coord]

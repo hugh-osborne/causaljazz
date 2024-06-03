@@ -119,6 +119,7 @@ class TEDAG:
         for i in range(len(in_names)):
             mapping[i] = out_names.index(in_names[i])
                 
+        func.transition.changeInputOutputMapping(mapping)
         func.transition.applyFunction(func.input_pmf.pmf, func.output_pmf.pmf)
         
         return func.output_pmf
@@ -239,6 +240,7 @@ class TEDAG:
             for i in range(len(in_names)):
                 mapping[i] = out_names.index(in_names[i])
                 
+            func.transition.changeInputOutputMapping(mapping)    
             func.transition.applyFunction(func.input_pmf.pmf, func.output_pmf.pmf)
             
             # Copy output_pmf to new pmf and dump the input pmf
