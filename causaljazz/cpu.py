@@ -447,7 +447,6 @@ class transition:
             centroids += [[in_pmf.origin[d] + ((coord[d]+0.5)*in_pmf.cell_widths[d]) for d in range(in_pmf.dims)]]
         
         vals = self.func(centroids)
-        #print(vals.shape)
             
         # Fill the pmf_out cell buffer with the updated mass values
         mass_summed = 0.0
@@ -461,7 +460,6 @@ class transition:
             for t in range(len(vals[val_id])):
                 val = vals[val_id][t]
                 out_coord = t-int(len(vals[val_id])*0.5)
-                print(out_coord, val)
                 if self.input_output_mapping is not None:
                     full_out_coords = tuple([coord[self.input_output_mapping[c]] for c in self.input_output_mapping.keys()]) + tuple([out_coord])
                     self.updateCell(out_pmf.cell_buffer, (val, full_out_coords), in_pmf.cell_buffer[coord])
