@@ -443,8 +443,9 @@ class transition:
             
         # batch calculate the transitions
         centroids = []
-        for coord in in_pmf.cell_buffer.keys():
-            centroids += [[in_pmf.origin[d] + ((coord[d]+0.5)*in_pmf.cell_widths[d]) for d in range(in_pmf.dims)]]
+        check_coords = set(map(tuple,[[coord[c] for c in self.input_pmf_dimensions] for coord in in_pmf.cell_buffer.keys()]))
+        for coord in check_coords:
+            centroids += [[in_pmf.origin[self.input_pmf_dimensions[d]] + ((coord[d]+0.5)*in_pmf.cell_widths[self.input_pmf_dimensions[d]]) for d in range(len(coord))]]
         
         vals = self.func(centroids)
             
