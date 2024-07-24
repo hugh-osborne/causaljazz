@@ -447,9 +447,10 @@ class transition:
         check_coords = set(map(tuple,[[coord[c] for c in self.input_pmf_dimensions] for coord in in_pmf.cell_buffer.keys()]))
         index = 0
         for coord in check_coords:
-            centroids += [[in_pmf.origin[self.input_pmf_dimensions[d]] + ((coord[d]+0.5)*in_pmf.cell_widths[self.input_pmf_dimensions[d]]) for d in range(len(coord))]]
-            coord_indices[tuple(coord)] = index
-            index += 1
+            if tuple(coord) not in coord_indices:
+                centroids += [[in_pmf.origin[self.input_pmf_dimensions[d]] + ((coord[d]+0.5)*in_pmf.cell_widths[self.input_pmf_dimensions[d]]) for d in range(len(coord))]]
+                coord_indices[tuple(coord)] = index
+                index += 1
         
         vals = self.func(centroids)
             
