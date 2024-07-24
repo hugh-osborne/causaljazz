@@ -448,7 +448,7 @@ class transition:
         index = 0
         for coord in check_coords:
             centroids += [[in_pmf.origin[self.input_pmf_dimensions[d]] + ((coord[d]+0.5)*in_pmf.cell_widths[self.input_pmf_dimensions[d]]) for d in range(len(coord))]]
-            coord_indices[coord] = index
+            coord_indices[tuple(coord)] = index
             index += 1
         
         vals = self.func(centroids)
@@ -462,7 +462,7 @@ class transition:
             mass_summed += in_pmf.cell_buffer[coord]
             
             reduced_coord = [coord[c] for c in self.input_pmf_dimensions]
-            val_id = coord_indices[reduced_coord]
+            val_id = coord_indices[tuple(reduced_coord)]
             # The output of the function should be a list of mass values from coordinates -0.5*len(output) to 0.5*len(output)
             for t in range(len(vals[val_id])):
                 val = vals[val_id][t]
