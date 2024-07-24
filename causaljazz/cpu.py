@@ -443,20 +443,26 @@ class transition:
             
         # batch calculate the transitions
         centroids = []
+        coord_indices = {}
         check_coords = set(map(tuple,[[coord[c] for c in self.input_pmf_dimensions] for coord in in_pmf.cell_buffer.keys()]))
+        index = 0
         for coord in check_coords:
             centroids += [[in_pmf.origin[self.input_pmf_dimensions[d]] + ((coord[d]+0.5)*in_pmf.cell_widths[self.input_pmf_dimensions[d]]) for d in range(len(coord))]]
+            coord_indices[coord] = index
+            index += 1
         
         vals = self.func(centroids)
             
         # Fill the pmf_out cell buffer with the updated mass values
         mass_summed = 0.0
-        val_id = 0
         for coord in in_pmf.cell_buffer.keys():
+            
             if in_pmf.cell_buffer[coord] < in_pmf.mass_epsilon:
                 continue
             mass_summed += in_pmf.cell_buffer[coord]
             
+            reduced_coord = [coord[c] for c in self.input_pmf_dimensions]
+            val_id = coord_indices[reduced_coord]
             # The output of the function should be a list of mass values from coordinates -0.5*len(output) to 0.5*len(output)
             for t in range(len(vals[val_id])):
                 val = vals[val_id][t]
@@ -467,8 +473,6 @@ class transition:
                 else:
                     full_out_coords = coord + tuple([out_coord])
                     self.updateCell(out_pmf.cell_buffer, (val, full_out_coords), in_pmf.cell_buffer[coord])
-                    
-            val_id += 1
                 
         mass_sum = 0.0
         for coord in out_pmf.cell_buffer:
