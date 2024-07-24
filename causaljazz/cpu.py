@@ -453,8 +453,7 @@ class transition:
                 index += 1
         
         vals = self.func(centroids)
-        
-        print(vals.shape, len(coord_indices.keys()))
+        vals = vals.T.tolist()
             
         # Fill the pmf_out cell buffer with the updated mass values
         mass_summed = 0.0
