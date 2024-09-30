@@ -1,4 +1,3 @@
-import calendar
 import numpy as np
 
 class pmf:
@@ -14,20 +13,10 @@ class pmf:
         # associated cell widths along each dimension
         self.cell_widths = _cell_widths
         
-        # A Cell buffer is a dictinoary that represents all cells containing (non-zero) probability mass
+        # The cell buffer is a dictinoary that represents all cells containing (non-zero) probability mass
         # Each cell has a coordinate in the discretised state space which is the dictionary key.
-        # The dictionary value is a tuple that holds the current ammount of probability mass in that cell
-        # and a list of transitions.
-        # Each transition is a pair with a proportion of the original mass and the coordinates of the cell 
-        # that will receive that proportion after a single time step
-        #
-        # cell_buffers
+        # The dictionary value is the current ammount of probability mass in that cell.
         self.cell_buffer = {}
-
-        # Due to numerical error, the total mass will be slightly more or less than 1.0 each iteration
-        # To overcome this, we need to rescale all cell masses. The numerical error remains of course, 
-        # but it can't exponentially increase or decrease and is held in check
-        self.mass_summed = 1.0
 
         # Cells with a mass lower than mass_epsilon will be removed from the cell buffer
         # The mass will be spread among all other cells
@@ -40,10 +29,8 @@ class pmf:
         self.max_mass = 1.0
 
 
-        # The initial distribution is given in terms of the full state space (with zero mass values included)
-        # but we only care about the non zero cells so we find the first non-zero cell and set that
-        # as the "base" coordinate (cell_base)
-        # All other non-zero cell coords are given in relation to the cell_base.
+        # If an initial distribution is given, this is copied directly to the cell buffer
+        # with the assumption that the origin cell (zero coordinates) is the first value.
         for idx, val in np.ndenumerate(initial_distribution):
             self.cell_buffer[tuple((np.asarray(idx)).tolist())] = val
     
@@ -297,7 +284,7 @@ class pmf:
             
         return points
     
-class transition:
+class CausalFunction:
     def __init__(self, _func, num_input_dimensions, recursive_dimension=None, transition_epsilon=0.0, transition_function=False):
         
         # The deterministic function upon which the transiions are based
@@ -386,11 +373,11 @@ class transition:
         
     def applyFunction(self, in_pmf, out_pmf):
         if self.transition_function:
-            self.applyFunctionAsTransition(in_pmf, out_pmf)
+            self.applyFunctionWithDistributionOutput(in_pmf, out_pmf)
         else:
-            self.applyFunctionWithCalculatedTransition(in_pmf, out_pmf)
+            self.applyFunctionWithSingleOutput(in_pmf, out_pmf)
         
-    def applyFunctionWithCalculatedTransition(self, in_pmf, out_pmf):
+    def applyFunctionWithSingleOutput(self, in_pmf, out_pmf):
         # Check the output pmf has the cells ready to receive mass, and update the transition buffer
         new_coords = []
         centroids_points = []
@@ -436,7 +423,7 @@ class transition:
     # In certain cases, we may have trained a function to take grid coordinates and to output the transitions
     # Instead of having a function take the input values and give a single output value.
     # In this case, we ignore the transition buffer entirely and just use the function
-    def applyFunctionAsTransition(self, in_pmf, out_pmf):
+    def applyFunctionWithDistributionOutput(self, in_pmf, out_pmf):
         # Set the next buffer mass values to 0
         for a in out_pmf.cell_buffer.keys():
             out_pmf.cell_buffer[a] = 0.0
