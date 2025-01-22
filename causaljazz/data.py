@@ -33,7 +33,7 @@ def sample_from_cmf(cmf, num_points, vmin, vmax):
 
     return noise_sampled
 
-def generateTrainingSets(data_points, input_res, output_res, output_buffer):
+def generateTrainingSets(data_points, input_res, output_res):
 
     # Build a histogram of the data_points, normalised so that it resembles a discretised probability mass function
     # pmf takes
@@ -57,10 +57,10 @@ def generateTrainingSets(data_points, input_res, output_res, output_buffer):
             continue
 
         # Shift the distribution to the correct position in the double sized ANN output array
-        t_output = np.zeros((output_res+output_buffer)*2)
+        t_output = np.zeros(output_res*2)
         mass_sum = 0.0
         for k,v in strip.items():
-            t_output[int(k[0]) + (output_res+output_buffer)] = v
+            t_output[int(k[0]) + output_res] = v
             mass_sum += v
 
         if mass_sum != 0:
@@ -71,7 +71,7 @@ def generateTrainingSets(data_points, input_res, output_res, output_buffer):
 
     return np.array(training_input), np.array(training_output)
 
-def trainANN(model_name, generate_model, data_points, input_res, output_res, output_buffer):
+def trainANN(model_name, generate_model, data_points, input_res, output_res):
 
     # Forst generate a model for the expected value
     x_input = tf.keras.Input(shape=(data_points.shape[0]-1,))
@@ -94,20 +94,20 @@ def trainANN(model_name, generate_model, data_points, input_res, output_res, out
         model_exp.load_weights(model_name +'_exp.weights.h5')
 
     def func_expected(y):
-        return model_exp.predict(np.array(y), verbose=False)
+        return model_exp.predict(np.array(y), verbose=False).T[0]
 
     # For technical reasons, we set the full output length to 2 times the output_res + buffer.
     # Causal Jazz stores only the relative coordinates of each distribution from an origin.
     # but the ANN only returns a list of values without reference.
     # By doubling the output size, we can set the central value of the ANN output to be the origin coord
     # of the distribution and still ensure we capture everything.
-    strip_length = 2*(output_res + output_buffer)
+    strip_length = 2*output_res
 
     # Define a simple ANN to estimate the discretised conditional distribution P(X2|X1) for each input point, X1
     x_input = tf.keras.Input(shape=(data_points.shape[0]-1,))
     z = layers.Dense(200, activation='relu')(x_input)
     z = layers.Dense(200, activation='relu')(z)
-    z_out = layers.Dense(strip_length, activation="sigmoid")(z)
+    z_out = layers.Dense(strip_length, activation="softmax")(z)
     model = tf.keras.Model(inputs=x_input, outputs=[z_out], name=model_name)
     #model.summary()
 
@@ -118,7 +118,7 @@ def trainANN(model_name, generate_model, data_points, input_res, output_res, out
         data_points -= diff
 
         # Build the training data
-        training_input, training_output = generateTrainingSets(data_points, input_res, output_res, output_buffer)
+        training_input, training_output = generateTrainingSets(data_points, input_res, output_res)
 
         # Helper callback function for the ANN to stop training early if we reach a minimum loss
         callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss',
@@ -136,10 +136,11 @@ def trainANN(model_name, generate_model, data_points, input_res, output_res, out
     # Build a function to take a set of points and return a matching set of estimated conditional distributions
     # This will be used by Causal Jazz to build the final joint distribution
     def func_noise(y):
-        test = model.predict(np.array(y), verbose=False)
+        dist = model.predict(np.array(y), verbose=False)
         # rescale the output to ensure the probability sums to 1
         # this isn't guaranteed by the ANN but it should be close if its trained correctly
-        test /= np.stack([np.sum(test, axis=1) for a in range(test.shape[1])]).T
-        return test.T
+        dist /= np.stack([np.sum(dist, axis=1) for a in range(dist.shape[1])]).T
+        sample = [pmf(a, np.array([-1.0]), np.array([1.0/output_res]), _mass_epsilon=0.0).sample(1)[0] for a in dist.tolist()]
+        return np.array(sample).T[0]
 
     return func_expected, func_noise
