@@ -270,19 +270,19 @@ class TEDAG_PD:
             
             # if we already calculated and then dropped this node, ignore it
             if node_key in self.dropped_nodes:
-                #if self.verbose:
-                #    print("Node", node_key, "in dropped nodes. Skipping.")
+                if self.verbose:
+                    print("Node", node_key, "in dropped nodes. Skipping.")
                 continue
             
             # if we already calculated this node, ignore it
             if node_key in self.current_nodes:
-                #if self.verbose:
-                #    print("Node", node_key, "already in current nodes. Skipping.")
+                if self.verbose:
+                    print("Node", node_key, "already in current nodes. Skipping.")
                 continue
             
             if not all([a + str(iteration-func.dt_multiple) in self.current_nodes for a in func.args]): # find a node for which all incoming nodes have already been evaluated for this iteration
-                #if self.verbose:
-                #    print("Node", node_key, "is missing required args.", [a + str(iteration-func.dt_multiple) for a in func.args if a + str(iteration-func.dt_multiple) not in self.current_nodes],"Skipping.")
+                if self.verbose:
+                    print("Node", node_key, "is missing required args.", [a + str(iteration-func.dt_multiple) for a in func.args if a + str(iteration-func.dt_multiple) not in self.current_nodes],"Skipping.")
                 continue
             
             if self.verbose:
@@ -379,6 +379,9 @@ class TEDAG_PD:
 
             for i in range(len(in_names)):
                 mapping[i] = out_names.index(in_names[i])
+
+            if self.verbose:
+                print("Mapping input var names to output var names... ", in_names, out_names, mapping)
                 
             func.transition.changeInputOutputMapping(mapping)    
             func.transition.applyFunction(func.input_pmf.pmf, func.output_pmf.pmf)

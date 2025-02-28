@@ -145,7 +145,7 @@ def trainANNForMC(model_name, generate_model, data_points, input_res, output_res
 
     return func_expected, func_noise
 
-def trainANNForPD(model_name, generate_model, data_points, input_res, output_res, output_buffer):
+def trainANNForPD(model_name, generate_model, data_points, input_res, output_res):
 
     # Forst generate a model for the expected value
     x_input = tf.keras.Input(shape=(data_points.shape[0]-1,))
@@ -175,13 +175,13 @@ def trainANNForPD(model_name, generate_model, data_points, input_res, output_res
     # but the ANN only returns a list of values without reference.
     # By doubling the output size, we can set the central value of the ANN output to be the origin coord
     # of the distribution and still ensure we capture everything.
-    strip_length = 2*(output_res + output_buffer)
+    strip_length = 2*output_res
 
     # Define a simple ANN to estimate the discretised conditional distribution P(X2|X1) for each input point, X1
     x_input = tf.keras.Input(shape=(data_points.shape[0]-1,))
     z = layers.Dense(200, activation='relu')(x_input)
     z = layers.Dense(200, activation='relu')(z)
-    z_out = layers.Dense(strip_length, activation="sigmoid")(z)
+    z_out = layers.Dense(strip_length, activation="softmax")(z)
     model = tf.keras.Model(inputs=x_input, outputs=[z_out], name=model_name)
     #model.summary()
 
@@ -192,7 +192,7 @@ def trainANNForPD(model_name, generate_model, data_points, input_res, output_res
         data_points -= diff
 
         # Build the training data
-        training_input, training_output = generateTrainingSets(data_points, input_res, output_res, output_buffer)
+        training_input, training_output = generateTrainingSets(data_points, input_res, output_res)
 
         # Helper callback function for the ANN to stop training early if we reach a minimum loss
         callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss',
