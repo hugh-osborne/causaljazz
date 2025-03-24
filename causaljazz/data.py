@@ -71,7 +71,7 @@ def generateTrainingSets(data_points, input_res, output_res):
 
     return np.array(training_input), np.array(training_output)
 
-def trainANNForMC(model_name, generate_model, data_points, input_res, output_res):
+def trainANNForMC(model_name, generate_model, data_points, input_res, output_res, epsilon=0.0):
 
     # Forst generate a model for the expected value
     x_input = tf.keras.Input(shape=(data_points.shape[0]-1,))
@@ -137,6 +137,20 @@ def trainANNForMC(model_name, generate_model, data_points, input_res, output_res
     # This will be used by Causal Jazz to build the final joint distribution
     def func_noise(y):
         dist = model.predict(np.array(y), verbose=False)
+
+        # Plot the generated distributions
+
+        # fig = plt.figure(1, dpi=100)
+        # fig.tight_layout()
+        # for d in dist.tolist():
+        #     plt.plot(d, color="#444488", zorder=0)
+        
+        # plt.show(block=True)
+        # plt.close()
+
+        # Remove any extremely low probabilities
+        dist[dist < epsilon] = 0.0
+
         # rescale the output to ensure the probability sums to 1
         # this isn't guaranteed by the ANN but it should be close if its trained correctly
         dist /= np.stack([np.sum(dist, axis=1) for a in range(dist.shape[1])]).T
@@ -145,7 +159,7 @@ def trainANNForMC(model_name, generate_model, data_points, input_res, output_res
 
     return func_expected, func_noise
 
-def trainANNForPD(model_name, generate_model, data_points, input_res, output_res):
+def trainANNForPD(model_name, generate_model, data_points, input_res, output_res, epsilon=0.0):
 
     # Forst generate a model for the expected value
     x_input = tf.keras.Input(shape=(data_points.shape[0]-1,))
@@ -211,6 +225,7 @@ def trainANNForPD(model_name, generate_model, data_points, input_res, output_res
     # This will be used by Causal Jazz to build the final joint distribution
     def func_noise(y):
         test = model.predict(np.array(y), verbose=False)
+        test[test < epsilon] = 0.0
         # rescale the output to ensure the probability sums to 1
         # this isn't guaranteed by the ANN but it should be close if its trained correctly
         test /= np.stack([np.sum(test, axis=1) for a in range(test.shape[1])]).T
