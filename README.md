@@ -8,8 +8,41 @@ ___
 ___
 
 ## Quick Start Guide 
-The source code for this guide is available at https://github.com/hugh-osborne/causaljazz/blob/e98059b3cad02dc48e26e4f3ba086a1889d10050/tests/quick_start_example.ipynb.
- 
+The source code for this guide is available at https://github.com/hugh-osborne/causaljazz/blob/e98059b3cad02dc48e26e4f3ba086a1889d10050/tests/PopulationDensity/quick_start_example.ipynb.
+
+CausalJazz has two modes: Monte Carlo and Population Density. The code for both modes are largely similar except for a few name changes that are outlined below.
+
+**Monte Carlo Mode**\
+In this mode, Causal Jazz requires a finite number of agents that are sampled from an initial joint distribution of initial nodes (nodes in the DAG with no parent).
+The user-defined or ANN-learned functions are then applied in order to the agents according to the DAG.
+Monte Carlo mode is memory efficient but cannot provide the full distribution produced by the DAG (only a sample from it).
+
+To use Monte Carlo mode:
+- import TEDAG_MC from causaljazz.inference
+- train ANN functions using data.trainANNForMC
+- initialise TEDAG functions using TEDAG_MC.FUNCTION
+- initialise the TEDAG as TEDAG_MC
+- define the initial set of agents
+- plot the points as required
+
+The quick start example in MC mode is available to view in https://github.com/hugh-osborne/causaljazz/blob/e98059b3cad02dc48e26e4f3ba086a1889d10050/tests/MonteCarlo/.
+
+**Population Density Mode**\
+In this mode, instead of individual agents, Causal Jazz requires a discretised probability mass function (PMF) to represent the initial joint distribution.
+The user-defined or ANN-learned functions are then applied in order and the PMF changes accordingly.
+The population density mode is extremely memory intensive. In most cases, a joint distribution of all variables (per time step) in the DAG must be constructed during simulation (the curse of dimensionality strikes again).
+
+To use Population Density mode:
+- import TEDAG_PD from causaljazz.inference
+- import pmf from causaljazz.cpu
+- train ANN functions using data.trainANNForPD
+- initialise TEDAG functions using TEDAG_PD.FUNCTION
+- initialise the TEDAG as TEDAG_PD
+- define the initial pmf 
+- plot the full or partial distributions as required
+
+The below example code shows this mode and is available to view in https://github.com/hugh-osborne/causaljazz/blob/e98059b3cad02dc48e26e4f3ba086a1889d10050/tests/PopulationDensity/.
+
 ### Installation
 Causal Jazz can be installed by cloning this repository and calling `pip install .` from the root directory.
 ### Learning Existing Data Distributions
@@ -21,8 +54,7 @@ First import the relevant classes and modules from Causal Jazz.
 
     from causaljazz.cpu import pmf
     from causaljazz.cpu import CausalFunction
-    from causaljazz.inference import TEDAG_FUNCTION
-    from causaljazz.inference import TEDAG
+    from causaljazz.inference import TEDAG_PD
     import causaljazz.data as data
 Set up a helper function to generate normal/Gaussian probability mass function discretised between two values.
 
@@ -87,22 +119,22 @@ To calculate the variable LC, instead of an ANN, the function is user-defined. T
       exp_c = 0.3*x1 + 0.3*x2
       cont_c = np.random.normal(loc=exp_c, scale=0.1)
       return cont_c
-Next, the data module is used to call `TrainANN()` on the remaining variables in the DAG. The output from func_c_sampled() is used to produce new training data values for C.
+Next, the data module is used to call `trainANNForPD()` on the remaining variables in the DAG. The output from func_c_sampled() is used to produce new training data values for C.
 
     # X2 <- X1
     data_points = np.stack([ground[:,0], ground[:,1]])
-    func_e_x2, func_x2_noise = data.trainANN('x2_given_x1', generate_models, data_points, [input_res], output_res, output_buffer)
+    func_e_x2, func_x2_noise = data.trainANNForPD('x2_given_x1', generate_models, data_points, [input_res], output_res, output_buffer)
     
     # C <- X1,X2
     generated_c = np.array([func_c_sampled(x) for x in ground[:,:2]])
     
     # X3 <- X1,X2,C
     data_points = np.stack([ground[:,0], ground[:,1], generated_c, ground[:,3]])
-    func_e_x3, func_x3_noise = data.trainANN('x3_given_x1x2c', generate_models, data_points, [input_res,input_res,input_res], output_res, output_buffer)
+    func_e_x3, func_x3_noise = data.trainANNForPD('x3_given_x1x2c', generate_models, data_points, [input_res,input_res,input_res], output_res, output_buffer)
     
     # S <- X1,X2,C,X3
     data_points = np.stack([ground[:,0], ground[:,1], generated_c, ground[:,3], ground[:,4]])
-    func_e_s, func_s_noise  = data.trainANN('s_given_x1x2cx3', generate_models, data_points, [input_res,input_res,input_res,input_res], output_res, output_buffer)
+    func_e_s, func_s_noise  = data.trainANNForPD('s_given_x1x2cx3', generate_models, data_points, [input_res,input_res,input_res,input_res], output_res, output_buffer)
 
 ## Building the Time-Explicit DAG (TEDAG)
 Now all functions have been generated, the DAG from above must be defined in Causal Jazz. Each function is associated with a TEDAG_FUNCTION that names the input and output variables so that they can be matched across the full DAG. Following the motif of a separate function for the expected value and one for the variance, two additional variables are defined for each node in the DAG appended with either 'E' (for expected) or 'N' (for noise). The actual function for the node is the summation of these two associated variables.
@@ -136,21 +168,21 @@ Now all functions have been generated, the DAG from above must be defined in Cau
     s_template  = pmf(np.array([]), np.array([0.0]), np.array([1.0 / output_res]), 0.000001)
     
     # Define the variable names for each function in TEDAG
-    tedag_func_x2_e = TEDAG_FUNCTION(['X1'], 'X2E', 0, trans_x2_e, x2_template)
-    tedag_func_x2_noise = TEDAG_FUNCTION(['X1'], 'X2N', 0, trans_x2_noise, x2_template)
-    tedag_func_x2 = TEDAG_FUNCTION(['X2E', 'X2N'], 'X2', 0, trans_sum, x2_template)
-    tedag_func_lc_e = TEDAG_FUNCTION(['X1', 'X2'], 'LCE', 0, trans_lc_e, lc_template)
-    tedag_func_lc_noise = TEDAG_FUNCTION(['X1', 'X2'], 'LCN', 0, trans_lc_noise, lc_template)
-    tedag_func_lc = TEDAG_FUNCTION(['LCE', 'LCN'], 'LC', 0, trans_sum, lc_template)
-    tedag_func_x3_e = TEDAG_FUNCTION(['X1', 'X2', 'LC'], 'X3E', 0, trans_x3_e, x3_template)
-    tedag_func_x3_noise = TEDAG_FUNCTION(['X1', 'X2', 'LC'], 'X3N', 0, trans_x3_noise, x3_template)
-    tedag_func_x3 = TEDAG_FUNCTION(['X3E', 'X3N'], 'X3', 0, trans_sum, x3_template)
-    tedag_func_s_e  = TEDAG_FUNCTION(['X1', 'X2', 'LC', 'X3'], 'SE', 0, trans_s_e, s_template)
-    tedag_func_s_noise  = TEDAG_FUNCTION(['X1', 'X2', 'LC', 'X3'], 'SN', 0, trans_s_noise, s_template)
-    tedag_func_s = TEDAG_FUNCTION(['SE', 'SN'], 'S', 0, trans_sum, s_template)
+    tedag_func_x2_e = TEDAG_PD.FUNCTION(['X1'], 'X2E', 0, trans_x2_e, x2_template)
+    tedag_func_x2_noise = TEDAG_PD.FUNCTION(['X1'], 'X2N', 0, trans_x2_noise, x2_template)
+    tedag_func_x2 = TEDAG_PD.FUNCTION(['X2E', 'X2N'], 'X2', 0, trans_sum, x2_template)
+    tedag_func_lc_e = TEDAG_PD.FUNCTION(['X1', 'X2'], 'LCE', 0, trans_lc_e, lc_template)
+    tedag_func_lc_noise = TEDAG_PD.FUNCTION(['X1', 'X2'], 'LCN', 0, trans_lc_noise, lc_template)
+    tedag_func_lc = TEDAG_PD.FUNCTION(['LCE', 'LCN'], 'LC', 0, trans_sum, lc_template)
+    tedag_func_x3_e = TEDAG_PD.FUNCTION(['X1', 'X2', 'LC'], 'X3E', 0, trans_x3_e, x3_template)
+    tedag_func_x3_noise = TEDAG_PD.FUNCTION(['X1', 'X2', 'LC'], 'X3N', 0, trans_x3_noise, x3_template)
+    tedag_func_x3 = TEDAG_PD.FUNCTION(['X3E', 'X3N'], 'X3', 0, trans_sum, x3_template)
+    tedag_func_s_e  = TEDAG_PD.FUNCTION(['X1', 'X2', 'LC', 'X3'], 'SE', 0, trans_s_e, s_template)
+    tedag_func_s_noise  = TEDAG_PD.FUNCTION(['X1', 'X2', 'LC', 'X3'], 'SN', 0, trans_s_noise, s_template)
+    tedag_func_s = TEDAG_PD.FUNCTION(['SE', 'SN'], 'S', 0, trans_sum, s_template)
     
-    # Initialise the TEDAG
-    tedag = TEDAG(1, [tedag_func_x2_e,tedag_func_x2_noise,tedag_func_lc_e,tedag_func_lc_noise,tedag_func_x2,tedag_func_lc,tedag_func_x3_e,tedag_func_x3_noise,tedag_func_x3,tedag_func_s_e,tedag_func_s_noise,tedag_func_s], observables=['X1', 'X2', 'LC', 'X3', 'S'], verbose=True)
+    # Initialise the TEDAG_PD
+    tedag = TEDAG_PD(1, [tedag_func_x2_e,tedag_func_x2_noise,tedag_func_lc_e,tedag_func_lc_noise,tedag_func_x2,tedag_func_lc,tedag_func_x3_e,tedag_func_x3_noise,tedag_func_x3,tedag_func_s_e,tedag_func_s_noise,tedag_func_s], observables=['X1', 'X2', 'LC', 'X3', 'S'], verbose=True)
 An initial distribution must be defined for X1 because it has no parent node. To do this, we defined an "intervention" at time=0.
 
     # Add a single intervention to set X1
