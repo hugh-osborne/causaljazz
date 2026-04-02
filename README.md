@@ -8,7 +8,7 @@ ___
 ___
 
 ## Quick Start Guide 
-The source code for this guide is available at https://github.com/hugh-osborne/causaljazz/blob/e98059b3cad02dc48e26e4f3ba086a1889d10050/tests/PopulationDensity/quick_start_example.ipynb.
+The source code for this guide is available at https://github.com/hugh-osborne/causaljazz/blob/3c4d1c7425f299de2c46827c91b3655012f0d41c/tests/PopulationDensity/quick_start_example.ipynb.
 
 CausalJazz has two modes: Monte Carlo and Population Density. The code for both modes are largely similar except for a few name changes that are outlined below.
 
@@ -25,7 +25,7 @@ To use Monte Carlo mode:
 - define the initial set of agents
 - plot the points as required
 
-The quick start example in MC mode is available to view in https://github.com/hugh-osborne/causaljazz/blob/e98059b3cad02dc48e26e4f3ba086a1889d10050/tests/MonteCarlo/.
+The quick start example in MC mode is available to view in https://github.com/hugh-osborne/causaljazz/tree/3c4d1c7425f299de2c46827c91b3655012f0d41c/tests/MonteCarlo.
 
 **Population Density Mode**\
 In this mode, instead of individual agents, Causal Jazz requires a discretised probability mass function (PMF) to represent the initial joint distribution.
@@ -41,7 +41,7 @@ To use Population Density mode:
 - define the initial pmf 
 - plot the full or partial distributions as required
 
-The below example code shows this mode and is available to view in https://github.com/hugh-osborne/causaljazz/blob/e98059b3cad02dc48e26e4f3ba086a1889d10050/tests/PopulationDensity/.
+The below example code shows this mode and is available to view in https://github.com/hugh-osborne/causaljazz/tree/3c4d1c7425f299de2c46827c91b3655012f0d41c/tests/PopulationDensity.
 
 ### Installation
 Causal Jazz can be installed by cloning this repository and calling `pip install .` from the root directory.
